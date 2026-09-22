@@ -86,7 +86,7 @@ func hcpWithProvisioner(name hyperv1.Provisioner) *hyperv1.HostedControlPlane {
 			},
 		},
 		Status: hyperv1.HostedControlPlaneStatus{
-			VersionStatus: &hyperv1.ClusterVersionStatus{
+			ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
 				Desired: configv1.Release{
 					Version: "4.18.0",
 				},
@@ -135,6 +135,18 @@ func TestHCPOperandReconcilePredicate(t *testing.T) {
 				ObjectNew: func() *hyperv1.HostedControlPlane {
 					updated := hcp.DeepCopy()
 					updated.Spec.AutoNode.Provisioner.Name = ""
+					return updated
+				}(),
+			},
+			expect: true,
+		},
+		{
+			name: "When control plane version changes it should reconcile",
+			event: event.UpdateEvent{
+				ObjectOld: hcp,
+				ObjectNew: func() *hyperv1.HostedControlPlane {
+					updated := hcp.DeepCopy()
+					updated.Status.ControlPlaneVersion.Desired.Version = "4.19.0"
 					return updated
 				}(),
 			},

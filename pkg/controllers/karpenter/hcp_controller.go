@@ -3,6 +3,7 @@ package karpenter
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider/common"
 
@@ -81,12 +82,12 @@ func (c *HCPController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// Wait for HCP Status.VersionStatus to be set by HyperShift before proceeding.
+	// Wait for HCP Status.ControlPlaneVersion to be set by HyperShift before proceeding.
 	// This ensures the karpenter deployment will have the correct version annotation
 	// for MonitorOperandsRolloutStatus tracking.
-	if hcp.Status.VersionStatus == nil || hcp.Status.VersionStatus.Desired.Version == "" {
-		log.FromContext(ctx).Info("waiting for HCP status version to be set, requeuing")
-		return ctrl.Result{}, fmt.Errorf("HCP status version not yet available")
+	if hcp.Status.ControlPlaneVersion.Desired.Version == "" {
+		log.FromContext(ctx).Info("waiting for HCP control plane version to be set, requeuing in 5s")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	ref := hcpOwnerRef(hcp)
@@ -103,7 +104,7 @@ func (c *HCPController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		cloudProvider:   c.config.CloudProvider,
 		imagePullPolicy: corev1.PullIfNotPresent,
 		logLevelArg:     "--log-level=debug", // TODO(maxcao13): make this configurable
-		releaseVersion:  hcp.Status.VersionStatus.Desired.Version,
+		releaseVersion:  hcp.Status.ControlPlaneVersion.Desired.Version,
 		additionalEnv: []corev1.EnvVar{
 			{Name: common.KubeconfigEnvName, Value: targetKubeconfigMountPath + "/" + targetKubeconfigFilePath},
 			{Name: common.DisableLeaderElectionEnvName, Value: "true"},
@@ -145,7 +146,7 @@ func (c *HCPController) SetupWithManager(mgr ctrl.Manager) error {
 	})
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(c.Name()).
-		For(&hyperv1.HostedControlPlane{}, builder.WithPredicates(predicate.GenerationChangedPredicate{}, hcpOperandReconcilePredicate())).
+		For(&hyperv1.HostedControlPlane{}, builder.WithPredicates(hcpOperandReconcilePredicate())).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(karpenterFilterPredicate)).
 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(karpenterFilterPredicate)).
 		Complete(c)
@@ -165,17 +166,28 @@ func hcpOperandReconcilePredicate() predicate.Predicate {
 			if !okOld || !okNew {
 				return true
 			}
-			return hcpOperandSpecChanged(oldHCP, newHCP)
+			return hcpOperandChanged(oldHCP, newHCP)
 		},
 	}
 }
 
-func hcpOperandSpecChanged(oldHCP, newHCP *hyperv1.HostedControlPlane) bool {
+func hcpOperandChanged(oldHCP, newHCP *hyperv1.HostedControlPlane) bool {
 	if oldHCP == nil || newHCP == nil {
 		return true
 	}
-	return oldHCP.Spec.InfraID != newHCP.Spec.InfraID ||
+
+	// Check spec changes
+	specChanged := oldHCP.Spec.InfraID != newHCP.Spec.InfraID ||
 		!equality.Semantic.DeepEqual(oldHCP.Spec.AutoNode, newHCP.Spec.AutoNode)
+
+	// Check control plane version status changes (specific status field we care about)
+	oldVersion := oldHCP.Status.ControlPlaneVersion.Desired.Version
+	newVersion := newHCP.Status.ControlPlaneVersion.Desired.Version
+	versionChanged := oldVersion != newVersion
+
+	// Reconcile if EITHER spec OR version changed
+	// (but NOT for other status changes like Ready condition, kubeconfig, etc.)
+	return specChanged || versionChanged
 }
 
 func hcpOwnerRef(hcp *hyperv1.HostedControlPlane) *metaac.OwnerReferenceApplyConfiguration {
