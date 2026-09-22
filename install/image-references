@@ -6,6 +6,10 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/openshift/origin-karpenter-operator:latest
+  - name: azure-karpenter-provider-azure
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-azure-karpenter-provider-azure:latest
   - name: aws-karpenter-provider-aws
     from:
       kind: DockerImage
