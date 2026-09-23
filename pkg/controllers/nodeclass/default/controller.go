@@ -3,10 +3,8 @@ package defaultnodeclass
 import (
 	"context"
 	"fmt"
-	"time"
 
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
-	"github.com/openshift/karpenter-operator/pkg/cloudprovider/common"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
@@ -14,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -24,11 +21,19 @@ import (
 
 const defaultNodeClassName = "default"
 
+// NodeClassProvider supplies the default NodeClass and watch type for a hosted cluster.
+type NodeClassProvider interface {
+	// DefaultNodeClass returns the target object and mutation function for reconciliation.
+	DefaultNodeClass(infraID string) (client.Object, controllerutil.MutateFn, error)
+	// WatchObject returns an empty typed object used to register the hosted-cluster watch.
+	WatchObject() client.Object
+}
+
 // ControllerConfig configures default NodeClass reconciliation for a hosted cluster.
 type ControllerConfig struct {
 	HostedCluster cluster.Cluster
 	Namespace     string
-	Provider      common.DefaultNodeClassProvider
+	Provider      NodeClassProvider
 }
 
 // Controller reconciles the default NodeClass in a hosted cluster.
@@ -65,13 +70,8 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("default NodeClass provider is required")
 	}
 
-	// The HyperShift adapter may install the hosted NodeClass CRD after this operator starts.
-	// Allow the hosted cache to retry discovery before treating startup as failed.
-	// TODO(AUTOSCALE-947): remove or replace once this operator owns the CRD and
-	// installs it before registering this watch.
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(c.Name()).
-		WithOptions(controller.Options{CacheSyncTimeout: 5 * time.Minute}).
 		For(&hyperv1.HostedControlPlane{}, builder.WithPredicates(hcpPredicate())).
 		WatchesRawSource(source.Kind(
 			c.hostedCache.GetCache(),
