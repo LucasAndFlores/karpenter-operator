@@ -19,6 +19,7 @@ import (
 
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -115,10 +116,10 @@ func (r *EC2NodeClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.mapToOpenShiftEC2NodeClasses),
 			builder.WithPredicates(r.karpenterSecretPredicate())).
-		// Watch HostedControlPlane for annotation changes
+		// Watch HostedControlPlane for instance profile and resource tag changes
 		Watches(&hyperv1.HostedControlPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.mapToOpenShiftEC2NodeClasses),
-			builder.WithPredicates(r.hcpAnnotationPredicate())).
+			builder.WithPredicates(r.hcpPredicate())).
 		Complete(r)
 }
 
@@ -710,9 +711,8 @@ func (r *EC2NodeClassReconciler) karpenterSecretPredicate() predicate.Predicate 
 	}
 }
 
-// hcpAnnotationPredicate filters HostedControlPlane events to only trigger reconciliation when the
-// AWSKarpenterDefaultInstanceProfile annotation changes
-func (r *EC2NodeClassReconciler) hcpAnnotationPredicate() predicate.Predicate {
+// hcpPredicate filters HostedControlPlane events to changes that affect EC2NodeClasses.
+func (r *EC2NodeClassReconciler) hcpPredicate() predicate.Predicate {
 	filterHCP := func(obj client.Object) bool {
 		if obj.GetNamespace() != r.namespace {
 			return false
@@ -739,13 +739,20 @@ func (r *EC2NodeClassReconciler) hcpAnnotationPredicate() predicate.Predicate {
 				}
 				oldVal := oldHCP.Annotations[hyperv1.AWSKarpenterDefaultInstanceProfile]
 				newVal := newHCP.Annotations[hyperv1.AWSKarpenterDefaultInstanceProfile]
-				return oldVal != newVal
+				return oldVal != newVal || !equality.Semantic.DeepEqual(awsResourceTags(oldHCP), awsResourceTags(newHCP))
 			}
 			return false
 		},
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
+}
+
+func awsResourceTags(hcp *hyperv1.HostedControlPlane) []hyperv1.AWSClusterResourceTag {
+	if hcp.Spec.Platform.AWS == nil {
+		return nil
+	}
+	return hcp.Spec.Platform.AWS.ResourceTags
 }
 
 func (r *EC2NodeClassReconciler) mapVAPToOpenShiftEC2NodeClasses(ctx context.Context, o client.Object) []ctrl.Request {

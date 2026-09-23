@@ -1818,6 +1818,81 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 		})
 	}
 }
+func TestHCPPredicate(t *testing.T) {
+	const namespace = "clusters-example"
+
+	newHCP := func(namespace, instanceProfile string, tags ...hyperv1.AWSClusterResourceTag) *hyperv1.HostedControlPlane {
+		hcp := &hyperv1.HostedControlPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "example",
+				Namespace: namespace,
+			},
+			Spec: hyperv1.HostedControlPlaneSpec{
+				Platform: hyperv1.PlatformSpec{
+					Type: hyperv1.AWSPlatform,
+					AWS: &hyperv1.AWSPlatformSpec{
+						ResourceTags: tags,
+					},
+				},
+			},
+		}
+		if instanceProfile != "" {
+			hcp.Annotations = map[string]string{hyperv1.AWSKarpenterDefaultInstanceProfile: instanceProfile}
+		}
+		return hcp
+	}
+	costCenter := hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "1234"}
+
+	tests := map[string]struct {
+		oldHCP         *hyperv1.HostedControlPlane
+		newHCP         *hyperv1.HostedControlPlane
+		expectedResult bool
+	}{
+		"When the instance profile annotation changes, it should accept the event": {
+			oldHCP:         newHCP(namespace, "example-4x7kq-worker"),
+			newHCP:         newHCP(namespace, "example-4x7kq-karpenter"),
+			expectedResult: true,
+		},
+		"When a resource tag value changes, it should accept the event": {
+			oldHCP:         newHCP(namespace, "", costCenter),
+			newHCP:         newHCP(namespace, "", hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
+			expectedResult: true,
+		},
+		"When a resource tag override policy changes, it should accept the event": {
+			oldHCP: newHCP(namespace, "", costCenter),
+			newHCP: newHCP(namespace, "", hyperv1.AWSClusterResourceTag{
+				Key: "cost-center", Value: "1234", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyAllow,
+			}),
+			expectedResult: true,
+		},
+		"When a resource tag is added, it should accept the event": {
+			oldHCP:         newHCP(namespace, ""),
+			newHCP:         newHCP(namespace, "", costCenter),
+			expectedResult: true,
+		},
+		"When neither the instance profile nor the resource tags change, it should reject the event": {
+			oldHCP:         newHCP(namespace, "example-4x7kq-worker", costCenter),
+			newHCP:         newHCP(namespace, "example-4x7kq-worker", costCenter),
+			expectedResult: false,
+		},
+		"When the HostedControlPlane is in another namespace, it should reject the event": {
+			oldHCP:         newHCP("clusters-other", "", costCenter),
+			newHCP:         newHCP("clusters-other", "", hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
+			expectedResult: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			r := &EC2NodeClassReconciler{namespace: namespace}
+
+			result := r.hcpPredicate().Update(event.UpdateEvent{ObjectOld: tc.oldHCP, ObjectNew: tc.newHCP})
+			g.Expect(result).To(Equal(tc.expectedResult))
+		})
+	}
+}
 
 func TestAMISelectorTerms(t *testing.T) {
 	tests := map[string]struct {
