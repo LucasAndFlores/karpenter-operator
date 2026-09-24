@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	karpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
+	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
 
@@ -15,16 +15,16 @@ import (
 
 func TestKarpenterKubeletConfigurationFromNodeClassSpec(t *testing.T) {
 	tests := map[string]struct {
-		spec     karpenterv1.OpenshiftEC2NodeClassSpec
+		spec     openshiftkarpenterv1.OpenshiftEC2NodeClassSpec
 		expected *awskarpenterv1.KubeletConfiguration
 	}{
 		"When Kubelet is nil, it should return nil": {
-			spec:     karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec:     openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expected: nil,
 		},
 		"When all karpenter-mapped fields are set, it should map them": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				Kubelet: karpenterv1.KubeletConfiguration{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				Kubelet: openshiftkarpenterv1.KubeletConfiguration{
 					MaxPods:     110,
 					PodsPerCore: 10,
 					SystemReserved: map[string]string{
@@ -35,10 +35,10 @@ func TestKarpenterKubeletConfigurationFromNodeClassSpec(t *testing.T) {
 						"cpu":    "200m",
 						"memory": "512Mi",
 					},
-					EvictionHard: map[string]karpenterv1.EvictionThreshold{
+					EvictionHard: map[string]openshiftkarpenterv1.EvictionThreshold{
 						"memory.available": "100Mi",
 					},
-					EvictionSoft: map[string]karpenterv1.EvictionThreshold{
+					EvictionSoft: map[string]openshiftkarpenterv1.EvictionThreshold{
 						"memory.available": "200Mi",
 					},
 					EvictionSoftGracePeriod: map[string]string{
@@ -77,8 +77,8 @@ func TestKarpenterKubeletConfigurationFromNodeClassSpec(t *testing.T) {
 			},
 		},
 		"When only some fields are set, it should map only those": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				Kubelet: karpenterv1.KubeletConfiguration{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				Kubelet: openshiftkarpenterv1.KubeletConfiguration{
 					MaxPods: 50,
 				},
 			},
@@ -87,8 +87,8 @@ func TestKarpenterKubeletConfigurationFromNodeClassSpec(t *testing.T) {
 			},
 		},
 		"When only overflow fields are set, it should return nil": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				Kubelet: karpenterv1.KubeletConfiguration{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				Kubelet: openshiftkarpenterv1.KubeletConfiguration{
 					Overflow: runtime.RawExtension{Raw: []byte(`{"podPidsLimit":4096}`)},
 				},
 			},

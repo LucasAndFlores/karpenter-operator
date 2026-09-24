@@ -3,14 +3,13 @@ package ec2nodeclass
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
 
-	karpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
+	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
@@ -66,20 +65,20 @@ func TestReconcile(t *testing.T) {
 			Name:      "user-data-default-karpenter-a1b2c3d4",
 			Namespace: hcpNamespace,
 			Labels: map[string]string{
-				managedByKarpenterLabel:                      "true",
+				openshiftkarpenterv1.ManagedByKarpenterLabel: "true",
 				archToAMILabelKey(hyperv1.ArchitectureAMD64): amd64AMI,
 				archToAMILabelKey(hyperv1.ArchitectureARM64): arm64AMI,
 			},
 			Annotations: map[string]string{
-				karpenterv1.TokenSecretNodePoolAnnotation: "clusters/default-karpenter",
+				openshiftkarpenterv1.TokenSecretNodePoolAnnotation: "clusters/default-karpenter",
 			},
 		},
 		Data: map[string][]byte{
 			"value": []byte(userData),
 		},
 	}
-	newOpenshiftEC2NodeClass := func(deleting bool) *karpenterv1.OpenshiftEC2NodeClass {
-		nodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+	newOpenshiftEC2NodeClass := func(deleting bool) *openshiftkarpenterv1.OpenshiftEC2NodeClass {
+		nodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: nodeClassName,
 				UID:  "9d1f5b3a-6c2e-4d7f-8a1b-2c3d4e5f6a7b",
@@ -113,13 +112,13 @@ func TestReconcile(t *testing.T) {
 		},
 		"When the HostedControlPlane has the Karpenter core e2e override annotation, it should skip reconciliation": {
 			managementObjects: []client.Object{
-				newHCP(map[string]string{karpenterv1.KarpenterCoreE2EOverrideAnnotation: "true"}),
+				newHCP(map[string]string{openshiftkarpenterv1.KarpenterCoreE2EOverrideAnnotation: "true"}),
 				userDataSecret,
 			},
 			hostedObjects:  []client.Object{newOpenshiftEC2NodeClass(false)},
 			expectedResult: ctrl.Result{},
 			expectedHosted: func(g Gomega, hostedClient client.Client) {
-				nodeClass := &karpenterv1.OpenshiftEC2NodeClass{}
+				nodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 				g.Expect(hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, nodeClass)).To(Succeed())
 				g.Expect(nodeClass.Finalizers).To(BeEmpty())
 				err := hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, &awskarpenterv1.EC2NodeClass{})
@@ -131,7 +130,7 @@ func TestReconcile(t *testing.T) {
 			hostedObjects:     []client.Object{newOpenshiftEC2NodeClass(false)},
 			expectedResult:    ctrl.Result{RequeueAfter: time.Second},
 			expectedHosted: func(g Gomega, hostedClient client.Client) {
-				nodeClass := &karpenterv1.OpenshiftEC2NodeClass{}
+				nodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 				g.Expect(hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, nodeClass)).To(Succeed())
 				g.Expect(nodeClass.Finalizers).To(ConsistOf(finalizer))
 				err := hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, &awskarpenterv1.EC2NodeClass{})
@@ -143,7 +142,7 @@ func TestReconcile(t *testing.T) {
 			hostedObjects:     []client.Object{newOpenshiftEC2NodeClass(false)},
 			expectedResult:    ctrl.Result{},
 			expectedHosted: func(g Gomega, hostedClient client.Client) {
-				nodeClass := &karpenterv1.OpenshiftEC2NodeClass{}
+				nodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 				g.Expect(hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, nodeClass)).To(Succeed())
 				g.Expect(nodeClass.Finalizers).To(ConsistOf(finalizer))
 
@@ -152,7 +151,7 @@ func TestReconcile(t *testing.T) {
 				g.Expect(ec2NodeClass.Spec.UserData).To(Equal(ptr.To(userData)))
 				g.Expect(ec2NodeClass.Spec.AMISelectorTerms).To(Equal([]awskarpenterv1.AMISelectorTerm{{ID: amd64AMI}, {ID: arm64AMI}}))
 				g.Expect(ec2NodeClass.OwnerReferences).To(ConsistOf(metav1.OwnerReference{
-					APIVersion:         karpenterv1.SchemeGroupVersion.String(),
+					APIVersion:         openshiftkarpenterv1.SchemeGroupVersion.String(),
 					Kind:               "OpenshiftEC2NodeClass",
 					Name:               nodeClassName,
 					UID:                nodeClass.UID,
@@ -174,7 +173,7 @@ func TestReconcile(t *testing.T) {
 			expectedHosted: func(g Gomega, hostedClient client.Client) {
 				err := hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, &awskarpenterv1.EC2NodeClass{})
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-				nodeClass := &karpenterv1.OpenshiftEC2NodeClass{}
+				nodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 				g.Expect(hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, nodeClass)).To(Succeed())
 				g.Expect(nodeClass.Finalizers).To(ConsistOf(finalizer))
 			},
@@ -184,7 +183,7 @@ func TestReconcile(t *testing.T) {
 			hostedObjects:     []client.Object{newOpenshiftEC2NodeClass(true)},
 			expectedResult:    ctrl.Result{},
 			expectedHosted: func(g Gomega, hostedClient client.Client) {
-				err := hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, &karpenterv1.OpenshiftEC2NodeClass{})
+				err := hostedClient.Get(t.Context(), client.ObjectKey{Name: nodeClassName}, &openshiftkarpenterv1.OpenshiftEC2NodeClass{})
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			},
 		},
@@ -201,7 +200,7 @@ func TestReconcile(t *testing.T) {
 			hostedClient := fake.NewClientBuilder().
 				WithScheme(testScheme()).
 				WithObjects(tc.hostedObjects...).
-				WithStatusSubresource(&karpenterv1.OpenshiftEC2NodeClass{}).
+				WithStatusSubresource(&openshiftkarpenterv1.OpenshiftEC2NodeClass{}).
 				Build()
 
 			r := &EC2NodeClassReconciler{
@@ -225,7 +224,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				karpenterv1.UserDataAMILabel: "ami-123",
+				openshiftkarpenterv1.UserDataAMILabel: "ami-123",
 			},
 		},
 	}
@@ -241,12 +240,12 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		spec         karpenterv1.OpenshiftEC2NodeClassSpec
+		spec         openshiftkarpenterv1.OpenshiftEC2NodeClassSpec
 		hcp          *hyperv1.HostedControlPlane
 		expectedSpec awskarpenterv1.EC2NodeClassSpec
 	}{
 		"When OpenshiftEC2NodeClassSpec.spec is empty, it should reconcile the EC2NodeClass with default values": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
 				SubnetSelectorTerms: []awskarpenterv1.SubnetSelectorTerm{
 					{
@@ -276,8 +275,8 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When OpenshiftEC2NodeClassSpec.spec is defined, it should mirror all fields": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				SubnetSelectorTerms: []karpenterv1.SubnetSelectorTerm{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				SubnetSelectorTerms: []openshiftkarpenterv1.SubnetSelectorTerm{
 					{
 						Tags: map[string]string{
 							"testKey": "testValue",
@@ -285,7 +284,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 						ID: "testID",
 					},
 				},
-				SecurityGroupSelectorTerms: []karpenterv1.SecurityGroupSelectorTerm{
+				SecurityGroupSelectorTerms: []openshiftkarpenterv1.SecurityGroupSelectorTerm{
 					{
 						Tags: map[string]string{
 							"testKey": "testValue",
@@ -293,26 +292,26 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 						Name: "testName",
 					},
 				},
-				IPAddressAssociation: karpenterv1.IPAddressAssociationPublic,
+				IPAddressAssociation: openshiftkarpenterv1.IPAddressAssociationPublic,
 				Tags: map[string]string{
 					"tag1": "value1",
 				},
-				BlockDeviceMappings: []karpenterv1.BlockDeviceMapping{
+				BlockDeviceMappings: []openshiftkarpenterv1.BlockDeviceMapping{
 					{
 						DeviceName: "xvdh",
-						EBS: karpenterv1.BlockDevice{
-							Encrypted:     karpenterv1.EncryptionStateEncrypted,
+						EBS: openshiftkarpenterv1.BlockDevice{
+							Encrypted:     openshiftkarpenterv1.EncryptionStateEncrypted,
 							VolumeSizeGiB: 20,
 						},
 					},
 				},
-				InstanceStorePolicy: karpenterv1.InstanceStorePolicyRAID0,
-				Monitoring:          karpenterv1.MonitoringStateDetailed,
-				MetadataOptions: karpenterv1.MetadataOptions{
-					Access:                  karpenterv1.MetadataAccessHTTPEndpoint,
-					HTTPIPProtocol:          karpenterv1.MetadataHTTPProtocolIPv4,
+				InstanceStorePolicy: openshiftkarpenterv1.InstanceStorePolicyRAID0,
+				Monitoring:          openshiftkarpenterv1.MonitoringStateDetailed,
+				MetadataOptions: openshiftkarpenterv1.MetadataOptions{
+					Access:                  openshiftkarpenterv1.MetadataAccessHTTPEndpoint,
+					HTTPIPProtocol:          openshiftkarpenterv1.MetadataHTTPProtocolIPv4,
 					HTTPPutResponseHopLimit: 1,
-					HTTPTokens:              karpenterv1.MetadataHTTPTokensStateRequired,
+					HTTPTokens:              openshiftkarpenterv1.MetadataHTTPTokensStateRequired,
 				},
 			},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
@@ -356,12 +355,12 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When MetadataOptions is specified, it should be mapped to EC2NodeClass": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				MetadataOptions: karpenterv1.MetadataOptions{
-					Access:                  karpenterv1.MetadataAccessHTTPEndpoint,
-					HTTPIPProtocol:          karpenterv1.MetadataHTTPProtocolIPv4,
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				MetadataOptions: openshiftkarpenterv1.MetadataOptions{
+					Access:                  openshiftkarpenterv1.MetadataAccessHTTPEndpoint,
+					HTTPIPProtocol:          openshiftkarpenterv1.MetadataHTTPProtocolIPv4,
 					HTTPPutResponseHopLimit: 2,
-					HTTPTokens:              karpenterv1.MetadataHTTPTokensStateRequired,
+					HTTPTokens:              openshiftkarpenterv1.MetadataHTTPTokensStateRequired,
 				},
 			},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
@@ -399,7 +398,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When MetadataOptions is nil, it should not be set on EC2NodeClass": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
 				SubnetSelectorTerms: []awskarpenterv1.SubnetSelectorTerm{
 					{
@@ -429,9 +428,9 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When MetadataOptions has only HTTPTokens set to optional, it should allow IMDSv1": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				MetadataOptions: karpenterv1.MetadataOptions{
-					HTTPTokens: karpenterv1.MetadataHTTPTokensStateOptional,
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				MetadataOptions: openshiftkarpenterv1.MetadataOptions{
+					HTTPTokens: openshiftkarpenterv1.MetadataHTTPTokensStateOptional,
 				},
 			},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
@@ -479,7 +478,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 					},
 				},
 			},
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
 				SubnetSelectorTerms: []awskarpenterv1.SubnetSelectorTerm{
 					{
@@ -523,7 +522,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 					},
 				},
 			},
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
 				SubnetSelectorTerms: []awskarpenterv1.SubnetSelectorTerm{
 					{
@@ -553,7 +552,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When HCP has no instance-profile annotation, it should NOT set InstanceProfile": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
 				SubnetSelectorTerms: []awskarpenterv1.SubnetSelectorTerm{
 					{
@@ -583,7 +582,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When platform tags exist in HostedControlPlane, it should merge with platform tags taking precedence": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
 				Tags: map[string]string{
 					"nodeclass-tag":   "nodeclass-value",
 					"conflicting-tag": "nodeclass-value", // Platform tag wins by default
@@ -639,7 +638,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When platform tag has overridePolicy Deny, it should take precedence over nodeclass tag": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
 				Tags: map[string]string{
 					"red-hat-clustertype": "some-other-value", // This should be blocked by Deny
 					"nodeclass-only-tag":  "nodeclass-value",
@@ -693,7 +692,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When platform tag has overridePolicy Allow, it should let nodeclass tag take precedence": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
 				Tags: map[string]string{
 					"red-hat-clustertype": "some-other-value", // Nodeclass wins because Allow
 					"nodeclass-only-tag":  "nodeclass-value",
@@ -747,13 +746,13 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When CapacityReservationSelectorTerms are set, it should mirror them to EC2NodeClass": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-				CapacityReservationSelectorTerms: []karpenterv1.CapacityReservationSelectorTerm{
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+				CapacityReservationSelectorTerms: []openshiftkarpenterv1.CapacityReservationSelectorTerm{
 					{
 						Tags:                  map[string]string{"karpenter.sh/discovery": "my-cr"},
 						ID:                    "cr-1234567890abcdef0",
 						OwnerID:               "123456789012",
-						InstanceMatchCriteria: karpenterv1.InstanceMatchCriteriaTargeted,
+						InstanceMatchCriteria: openshiftkarpenterv1.InstanceMatchCriteriaTargeted,
 					},
 				},
 			},
@@ -794,7 +793,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When CapacityReservationSelectorTerms are not set, it should not set them on EC2NodeClass": {
-			spec: karpenterv1.OpenshiftEC2NodeClassSpec{},
+			spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{},
 			expectedSpec: awskarpenterv1.EC2NodeClassSpec{
 				SubnetSelectorTerms: []awskarpenterv1.SubnetSelectorTerm{
 					{
@@ -834,7 +833,7 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 				tc.hcp = hcp
 			}
 
-			openshiftEC2NodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+			openshiftEC2NodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 				Spec: tc.spec,
 			}
 			ec2NodeClass := &awskarpenterv1.EC2NodeClass{}
@@ -940,7 +939,7 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				karpenterv1.UserDataAMILabel: newAMI,
+				openshiftkarpenterv1.UserDataAMILabel: newAMI,
 			},
 		},
 	}
@@ -983,7 +982,7 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 	tests := map[string]struct {
 		hcp                   *hyperv1.HostedControlPlane
 		ec2NodeClass          *awskarpenterv1.EC2NodeClass
-		openshiftEC2NodeClass *karpenterv1.OpenshiftEC2NodeClass
+		openshiftEC2NodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass
 		expectedUserData      *string
 		expectedAMIs          []awskarpenterv1.AMISelectorTerm
 	}{
@@ -995,7 +994,7 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 					AMISelectorTerms: oldAMI,
 				},
 			},
-			openshiftEC2NodeClass: &karpenterv1.OpenshiftEC2NodeClass{},
+			openshiftEC2NodeClass: &openshiftkarpenterv1.OpenshiftEC2NodeClass{},
 			expectedUserData:      oldUserData,
 			expectedAMIs:          oldAMI,
 		},
@@ -1007,8 +1006,8 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 					AMISelectorTerms: oldAMI,
 				},
 			},
-			openshiftEC2NodeClass: &karpenterv1.OpenshiftEC2NodeClass{
-				Spec: karpenterv1.OpenshiftEC2NodeClassSpec{
+			openshiftEC2NodeClass: &openshiftkarpenterv1.OpenshiftEC2NodeClass{
+				Spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
 					Version: "4.18.0",
 				},
 			},
@@ -1018,7 +1017,7 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 		"When CP is upgrading and NodeClass is unpinned but has no existing values (first creation), it should still apply new values": {
 			hcp:                   upgradingHCP,
 			ec2NodeClass:          &awskarpenterv1.EC2NodeClass{},
-			openshiftEC2NodeClass: &karpenterv1.OpenshiftEC2NodeClass{},
+			openshiftEC2NodeClass: &openshiftkarpenterv1.OpenshiftEC2NodeClass{},
 			expectedUserData:      new(newUserData),
 			expectedAMIs:          []awskarpenterv1.AMISelectorTerm{{ID: newAMI}},
 		},
@@ -1030,7 +1029,7 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 					AMISelectorTerms: oldAMI,
 				},
 			},
-			openshiftEC2NodeClass: &karpenterv1.OpenshiftEC2NodeClass{},
+			openshiftEC2NodeClass: &openshiftkarpenterv1.OpenshiftEC2NodeClass{},
 			expectedUserData:      new(newUserData),
 			expectedAMIs:          []awskarpenterv1.AMISelectorTerm{{ID: newAMI}},
 		},
@@ -1051,9 +1050,9 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 func TestReconcileStatus(t *testing.T) {
 	tests := map[string]struct {
 		ec2NodeClassStatus           awskarpenterv1.EC2NodeClassStatus
-		expectedCapacityReservations []karpenterv1.CapacityReservation
-		expectedSubnets              []karpenterv1.Subnet
-		expectedSecurityGroups       []karpenterv1.SecurityGroup
+		expectedCapacityReservations []openshiftkarpenterv1.CapacityReservation
+		expectedSubnets              []openshiftkarpenterv1.Subnet
+		expectedSecurityGroups       []openshiftkarpenterv1.SecurityGroup
 	}{
 		"When EC2NodeClass has capacity reservations, it should mirror them to OpenshiftEC2NodeClass status": {
 			ec2NodeClassStatus: awskarpenterv1.EC2NodeClassStatus{
@@ -1069,15 +1068,15 @@ func TestReconcileStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedCapacityReservations: []karpenterv1.CapacityReservation{
+			expectedCapacityReservations: []openshiftkarpenterv1.CapacityReservation{
 				{
 					AvailabilityZone:      "us-east-1a",
 					ID:                    "cr-1234567890abcdef0",
-					InstanceMatchCriteria: karpenterv1.InstanceMatchCriteriaTargeted,
+					InstanceMatchCriteria: openshiftkarpenterv1.InstanceMatchCriteriaTargeted,
 					InstanceType:          "m5.large",
 					OwnerID:               "123456789012",
-					ReservationType:       karpenterv1.CapacityReservationTypeDefault,
-					State:                 karpenterv1.CapacityReservationStateActive,
+					ReservationType:       openshiftkarpenterv1.CapacityReservationTypeDefault,
+					State:                 openshiftkarpenterv1.CapacityReservationStateActive,
 				},
 			},
 		},
@@ -1090,10 +1089,10 @@ func TestReconcileStatus(t *testing.T) {
 					{ID: "sg-abc123", Name: "test-sg"},
 				},
 			},
-			expectedSubnets: []karpenterv1.Subnet{
+			expectedSubnets: []openshiftkarpenterv1.Subnet{
 				{ID: "subnet-abc123", Zone: "us-east-1a", ZoneID: "use1-az1"},
 			},
-			expectedSecurityGroups: []karpenterv1.SecurityGroup{
+			expectedSecurityGroups: []openshiftkarpenterv1.SecurityGroup{
 				{ID: "sg-abc123", Name: "test-sg"},
 			},
 		},
@@ -1108,9 +1107,9 @@ func TestReconcileStatus(t *testing.T) {
 			g := NewWithT(t)
 
 			scheme := runtime.NewScheme()
-			g.Expect(karpenterv1.AddToScheme(scheme)).To(Succeed())
+			g.Expect(openshiftkarpenterv1.AddToScheme(scheme)).To(Succeed())
 
-			openshiftNodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+			openshiftNodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-nodeclass",
 				},
@@ -1133,7 +1132,7 @@ func TestReconcileStatus(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			// Re-fetch to verify what was persisted via status patch
-			updated := &karpenterv1.OpenshiftEC2NodeClass{}
+			updated := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 			g.Expect(fakeClient.Get(context.Background(), client.ObjectKeyFromObject(openshiftNodeClass), updated)).To(Succeed())
 
 			g.Expect(updated.Status.CapacityReservations).To(Equal(tc.expectedCapacityReservations))
@@ -1147,9 +1146,9 @@ func TestReconcileStatusIdempotency(t *testing.T) {
 	g := NewWithT(t)
 
 	scheme := runtime.NewScheme()
-	g.Expect(karpenterv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(openshiftkarpenterv1.AddToScheme(scheme)).To(Succeed())
 
-	openshiftNodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+	openshiftNodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-nodeclass",
 		},
@@ -1190,12 +1189,12 @@ func TestReconcileStatusIdempotency(t *testing.T) {
 	// When reconcileStatus is called twice with the same upstream status it should not accumulate entries
 	g.Expect(r.reconcileStatus(context.Background(), ec2NodeClass, openshiftNodeClass, hcp)).To(Succeed())
 
-	updated := &karpenterv1.OpenshiftEC2NodeClass{}
+	updated := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 	g.Expect(fakeClient.Get(context.Background(), client.ObjectKeyFromObject(openshiftNodeClass), updated)).To(Succeed())
 
 	g.Expect(r.reconcileStatus(context.Background(), ec2NodeClass, updated, hcp)).To(Succeed())
 
-	final := &karpenterv1.OpenshiftEC2NodeClass{}
+	final := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 	g.Expect(fakeClient.Get(context.Background(), client.ObjectKeyFromObject(openshiftNodeClass), final)).To(Succeed())
 
 	// It should have exactly one entry for each, not two
@@ -1207,20 +1206,20 @@ func TestReconcileStatusIdempotency(t *testing.T) {
 func TestReconcileStatusPreservesIgnitionOwnedFields(t *testing.T) {
 	g := NewWithT(t)
 
-	openshiftNodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+	openshiftNodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "default", Generation: 2},
-		Status: karpenterv1.OpenshiftEC2NodeClassStatus{
+		Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
 			ReleaseImage: "quay.io/openshift-release-dev/ocp-release:4.21.10-x86_64",
 			Version:      "4.21.10",
 			Conditions: []metav1.Condition{
 				{
-					Type:               karpenterv1.ConditionTypeVersionResolved,
+					Type:               openshiftkarpenterv1.ConditionTypeVersionResolved,
 					Status:             metav1.ConditionTrue,
-					Reason:             karpenterv1.ConditionReasonVersionResolved,
+					Reason:             openshiftkarpenterv1.ConditionReasonVersionResolved,
 					LastTransitionTime: metav1.Now(),
 				},
 				{
-					Type:               karpenterv1.ConditionTypeSupportedVersionSkew,
+					Type:               openshiftkarpenterv1.ConditionTypeSupportedVersionSkew,
 					Status:             metav1.ConditionTrue,
 					Reason:             "AsExpected",
 					LastTransitionTime: metav1.Now(),
@@ -1242,13 +1241,13 @@ func TestReconcileStatusPreservesIgnitionOwnedFields(t *testing.T) {
 	}
 	g.Expect(r.reconcileStatus(t.Context(), ec2NodeClass, openshiftNodeClass, &hyperv1.HostedControlPlane{})).To(Succeed())
 
-	updated := &karpenterv1.OpenshiftEC2NodeClass{}
+	updated := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 	g.Expect(fakeClient.Get(t.Context(), client.ObjectKeyFromObject(openshiftNodeClass), updated)).To(Succeed())
 	g.Expect(updated.Status.Subnets).To(HaveLen(1))
 	g.Expect(updated.Status.ReleaseImage).To(Equal("quay.io/openshift-release-dev/ocp-release:4.21.10-x86_64"))
 	g.Expect(updated.Status.Version).To(Equal("4.21.10"))
-	g.Expect(meta.IsStatusConditionTrue(updated.Status.Conditions, karpenterv1.ConditionTypeVersionResolved)).To(BeTrue())
-	g.Expect(meta.IsStatusConditionTrue(updated.Status.Conditions, karpenterv1.ConditionTypeSupportedVersionSkew)).To(BeTrue())
+	g.Expect(meta.IsStatusConditionTrue(updated.Status.Conditions, openshiftkarpenterv1.ConditionTypeVersionResolved)).To(BeTrue())
+	g.Expect(meta.IsStatusConditionTrue(updated.Status.Conditions, openshiftkarpenterv1.ConditionTypeSupportedVersionSkew)).To(BeTrue())
 }
 
 func TestReconcileStatusTagConflictCondition(t *testing.T) {
@@ -1399,11 +1398,11 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 			g := NewWithT(t)
 
 			scheme := runtime.NewScheme()
-			g.Expect(karpenterv1.AddToScheme(scheme)).To(Succeed())
+			g.Expect(openshiftkarpenterv1.AddToScheme(scheme)).To(Succeed())
 
-			openshiftNodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+			openshiftNodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-nodeclass"},
-				Spec:       karpenterv1.OpenshiftEC2NodeClassSpec{Tags: tc.tags},
+				Spec:       openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{Tags: tc.tags},
 			}
 
 			fakeClient := fake.NewClientBuilder().
@@ -1417,7 +1416,7 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 
 			g.Expect(r.reconcileStatus(context.Background(), ec2NodeClass, openshiftNodeClass, tc.hcp)).To(Succeed())
 
-			updated := &karpenterv1.OpenshiftEC2NodeClass{}
+			updated := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 			g.Expect(fakeClient.Get(context.Background(), client.ObjectKeyFromObject(openshiftNodeClass), updated)).To(Succeed())
 
 			cond := meta.FindStatusCondition(updated.Status.Conditions, hyperv1.NodePoolAWSResourceTagConflictConditionType)
@@ -1433,146 +1432,6 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 	}
 }
 
-func TestGetUserDataSecret(t *testing.T) {
-	g := NewWithT(t)
-
-	scheme := runtime.NewScheme()
-	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
-
-	nodeClass := &karpenterv1.OpenshiftEC2NodeClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nodeclass",
-		},
-	}
-	expectedNodePoolName := karpenterNodePoolName(nodeClass)
-
-	tests := map[string]struct {
-		namespace      string
-		nodeClass      *karpenterv1.OpenshiftEC2NodeClass
-		objects        []client.Object
-		expectedSecret string
-		expectedError  error
-	}{
-		"When matching secret exists, it should return the secret": {
-			namespace: "test-namespace",
-			nodeClass: nodeClass,
-			objects: []client.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "matching-secret",
-						Namespace:         "test-namespace",
-						CreationTimestamp: metav1.Time{Time: time.Now()},
-						Labels: map[string]string{
-							managedByKarpenterLabel: "true",
-						},
-						Annotations: map[string]string{
-							karpenterv1.TokenSecretNodePoolAnnotation: "test-namespace/" + expectedNodePoolName,
-						},
-					},
-				},
-			},
-			expectedSecret: "matching-secret",
-		},
-		"When multiple secrets exist, it should return the one matching nodepool and not the token secret": {
-			namespace: "test-namespace",
-			nodeClass: nodeClass,
-			objects: []client.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "other-secret",
-						Namespace: "test-namespace",
-						Labels: map[string]string{
-							managedByKarpenterLabel: "true",
-						},
-						Annotations: map[string]string{
-							karpenterv1.TokenSecretNodePoolAnnotation: "test-namespace/other-nodepool",
-						},
-					},
-				},
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "token-secret",
-						Namespace: "test-namespace",
-						Labels: map[string]string{
-							managedByKarpenterLabel: "true",
-						},
-						Annotations: map[string]string{
-							tokenSecretAnnotation:                     "true",
-							karpenterv1.TokenSecretNodePoolAnnotation: "test-namespace/" + expectedNodePoolName,
-						},
-					},
-				},
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "matching-secret",
-						Namespace: "test-namespace",
-						Labels: map[string]string{
-							managedByKarpenterLabel: "true",
-						},
-						Annotations: map[string]string{
-							karpenterv1.TokenSecretNodePoolAnnotation: "test-namespace/" + expectedNodePoolName,
-						},
-					},
-				},
-			},
-			expectedSecret: "matching-secret",
-		},
-		"When no secrets exist, it should return errKarpenterUserDataSecretNotFound": {
-			namespace:     "test-namespace",
-			nodeClass:     nodeClass,
-			objects:       []client.Object{},
-			expectedError: errKarpenterUserDataSecretNotFound,
-		},
-		"When secrets exist but none match nodepool, it should return errKarpenterUserDataSecretNotFound": {
-			namespace: "test-namespace",
-			nodeClass: nodeClass,
-			objects: []client.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "non-matching-secret",
-						Namespace: "test-namespace",
-						Labels: map[string]string{
-							managedByKarpenterLabel: "true",
-						},
-						Annotations: map[string]string{
-							karpenterv1.TokenSecretNodePoolAnnotation: "test-namespace/other-nodepool",
-						},
-					},
-				},
-			},
-			expectedError: errKarpenterUserDataSecretNotFound,
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			g := NewWithT(t)
-
-			fakeClient := fake.NewClientBuilder().
-				WithScheme(scheme).
-				WithObjects(tc.objects...).
-				Build()
-
-			r := &EC2NodeClassReconciler{
-				managementClient: fakeClient,
-				namespace:        tc.namespace,
-			}
-
-			secret, err := r.getUserDataSecret(t.Context(), tc.nodeClass)
-
-			if tc.expectedError != nil {
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(errors.Is(err, tc.expectedError)).To(BeTrue(), "expected error to wrap %v, got %v", tc.expectedError, err)
-				g.Expect(secret).To(BeNil())
-			} else {
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(secret).NotTo(BeNil())
-				g.Expect(secret.Name).To(Equal(tc.expectedSecret))
-			}
-		})
-	}
-}
-
 func TestComputeReadyCondition(t *testing.T) {
 	tests := map[string]struct {
 		conditions          []metav1.Condition
@@ -1583,34 +1442,34 @@ func TestComputeReadyCondition(t *testing.T) {
 		"When VersionResolved is False, it should set Ready to False": {
 			conditions: []metav1.Condition{
 				{
-					Type:    karpenterv1.ConditionTypeReady,
+					Type:    openshiftkarpenterv1.ConditionTypeReady,
 					Status:  metav1.ConditionTrue,
 					Reason:  "Ready",
 					Message: "EC2NodeClass is ready",
 				},
 				{
-					Type:    karpenterv1.ConditionTypeVersionResolved,
+					Type:    openshiftkarpenterv1.ConditionTypeVersionResolved,
 					Status:  metav1.ConditionFalse,
-					Reason:  karpenterv1.ConditionReasonResolutionFailed,
+					Reason:  openshiftkarpenterv1.ConditionReasonResolutionFailed,
 					Message: "Failed to resolve version \"4.17.0\": Cincinnati API unavailable",
 				},
 			},
 			expectedReadyStatus: metav1.ConditionFalse,
-			expectedReadyReason: karpenterv1.ConditionReasonResolutionFailed,
+			expectedReadyReason: openshiftkarpenterv1.ConditionReasonResolutionFailed,
 			readyShouldChange:   true,
 		},
 		"When VersionResolved is True, it should not override Ready": {
 			conditions: []metav1.Condition{
 				{
-					Type:    karpenterv1.ConditionTypeReady,
+					Type:    openshiftkarpenterv1.ConditionTypeReady,
 					Status:  metav1.ConditionTrue,
 					Reason:  "Ready",
 					Message: "EC2NodeClass is ready",
 				},
 				{
-					Type:    karpenterv1.ConditionTypeVersionResolved,
+					Type:    openshiftkarpenterv1.ConditionTypeVersionResolved,
 					Status:  metav1.ConditionTrue,
-					Reason:  karpenterv1.ConditionReasonVersionResolved,
+					Reason:  openshiftkarpenterv1.ConditionReasonVersionResolved,
 					Message: "Version resolved",
 				},
 			},
@@ -1621,26 +1480,26 @@ func TestComputeReadyCondition(t *testing.T) {
 		"When VersionResolved condition is absent, it should set Ready to False": {
 			conditions: []metav1.Condition{
 				{
-					Type:    karpenterv1.ConditionTypeReady,
+					Type:    openshiftkarpenterv1.ConditionTypeReady,
 					Status:  metav1.ConditionTrue,
 					Reason:  "Ready",
 					Message: "EC2NodeClass is ready",
 				},
 			},
 			expectedReadyStatus: metav1.ConditionFalse,
-			expectedReadyReason: karpenterv1.ConditionReasonResolutionFailed,
+			expectedReadyReason: openshiftkarpenterv1.ConditionReasonResolutionFailed,
 			readyShouldChange:   true,
 		},
 		"When VersionResolved is Unknown, it should set Ready to False": {
 			conditions: []metav1.Condition{
 				{
-					Type:    karpenterv1.ConditionTypeReady,
+					Type:    openshiftkarpenterv1.ConditionTypeReady,
 					Status:  metav1.ConditionTrue,
 					Reason:  "Ready",
 					Message: "EC2NodeClass is ready",
 				},
 				{
-					Type:    karpenterv1.ConditionTypeVersionResolved,
+					Type:    openshiftkarpenterv1.ConditionTypeVersionResolved,
 					Status:  metav1.ConditionUnknown,
 					Reason:  "Unknown",
 					Message: "Version resolution status is unknown",
@@ -1656,12 +1515,12 @@ func TestComputeReadyCondition(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			openshiftNodeClass := &karpenterv1.OpenshiftEC2NodeClass{
+			openshiftNodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-nodeclass",
 					Generation: 1,
 				},
-				Status: karpenterv1.OpenshiftEC2NodeClassStatus{
+				Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
 					Conditions: tc.conditions,
 				},
 			}
@@ -1669,7 +1528,7 @@ func TestComputeReadyCondition(t *testing.T) {
 			r := &EC2NodeClassReconciler{}
 			r.computeReadyCondition(openshiftNodeClass)
 
-			readyCond := findCondition(openshiftNodeClass.Status.Conditions, karpenterv1.ConditionTypeReady)
+			readyCond := findCondition(openshiftNodeClass.Status.Conditions, openshiftkarpenterv1.ConditionTypeReady)
 			g.Expect(readyCond).NotTo(BeNil())
 			g.Expect(readyCond.Status).To(Equal(tc.expectedReadyStatus))
 			g.Expect(readyCond.Reason).To(Equal(tc.expectedReadyReason))
@@ -1688,33 +1547,30 @@ func findCondition(conditions []metav1.Condition, condType string) *metav1.Condi
 
 func TestKarpenterSecretPredicate(t *testing.T) {
 	tests := map[string]struct {
-		namespace      string
 		secret         *corev1.Secret
 		eventType      string
 		expectedResult bool
 	}{
-		"When a karpenter secret in the correct namespace is created, it should accept the event": {
-			namespace: "test-namespace",
+		"When a karpenter secret is created, it should accept the event": {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "karpenter-secret",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						managedByKarpenterLabel: "true",
+						openshiftkarpenterv1.ManagedByKarpenterLabel: "true",
 					},
 				},
 			},
 			eventType:      "Create",
 			expectedResult: true,
 		},
-		"When a karpenter secret in the correct namespace is updated, it should accept the event": {
-			namespace: "test-namespace",
+		"When a karpenter secret is updated, it should accept the event": {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "karpenter-secret",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						managedByKarpenterLabel: "true",
+						openshiftkarpenterv1.ManagedByKarpenterLabel: "true",
 					},
 				},
 			},
@@ -1722,13 +1578,12 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 			expectedResult: true,
 		},
 		"When a karpenter secret is deleted, it should reject the event": {
-			namespace: "test-namespace",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "karpenter-secret",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						managedByKarpenterLabel: "true",
+						openshiftkarpenterv1.ManagedByKarpenterLabel: "true",
 					},
 				},
 			},
@@ -1736,35 +1591,19 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 			expectedResult: false,
 		},
 		"When a generic event occurs for a karpenter secret, it should reject the event": {
-			namespace: "test-namespace",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "karpenter-secret",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						managedByKarpenterLabel: "true",
+						openshiftkarpenterv1.ManagedByKarpenterLabel: "true",
 					},
 				},
 			},
 			eventType:      "Generic",
 			expectedResult: false,
 		},
-		"When a karpenter secret is in the wrong namespace, it should reject the event": {
-			namespace: "test-namespace",
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "karpenter-secret",
-					Namespace: "wrong-namespace",
-					Labels: map[string]string{
-						managedByKarpenterLabel: "true",
-					},
-				},
-			},
-			eventType:      "Create",
-			expectedResult: false,
-		},
 		"When a secret has no ManagedByKarpenterLabel, it should reject the event": {
-			namespace: "test-namespace",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "regular-secret",
@@ -1775,13 +1614,12 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 			expectedResult: false,
 		},
 		"When a secret has ManagedByKarpenterLabel set to false, it should reject the event": {
-			namespace: "test-namespace",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "other-secret",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						managedByKarpenterLabel: "false",
+						openshiftkarpenterv1.ManagedByKarpenterLabel: "false",
 					},
 				},
 			},
@@ -1794,9 +1632,7 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			r := &EC2NodeClassReconciler{
-				namespace: tc.namespace,
-			}
+			r := &EC2NodeClassReconciler{}
 
 			pred := r.karpenterSecretPredicate()
 
@@ -1821,7 +1657,7 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 func TestHCPPredicate(t *testing.T) {
 	const namespace = "clusters-example"
 
-	newHCP := func(namespace, instanceProfile string, tags ...hyperv1.AWSClusterResourceTag) *hyperv1.HostedControlPlane {
+	newHCP := func(instanceProfile string, tags ...hyperv1.AWSClusterResourceTag) *hyperv1.HostedControlPlane {
 		hcp := &hyperv1.HostedControlPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "example",
@@ -1849,35 +1685,30 @@ func TestHCPPredicate(t *testing.T) {
 		expectedResult bool
 	}{
 		"When the instance profile annotation changes, it should accept the event": {
-			oldHCP:         newHCP(namespace, "example-4x7kq-worker"),
-			newHCP:         newHCP(namespace, "example-4x7kq-karpenter"),
+			oldHCP:         newHCP("example-4x7kq-worker"),
+			newHCP:         newHCP("example-4x7kq-karpenter"),
 			expectedResult: true,
 		},
 		"When a resource tag value changes, it should accept the event": {
-			oldHCP:         newHCP(namespace, "", costCenter),
-			newHCP:         newHCP(namespace, "", hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
+			oldHCP:         newHCP("", costCenter),
+			newHCP:         newHCP("", hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
 			expectedResult: true,
 		},
 		"When a resource tag override policy changes, it should accept the event": {
-			oldHCP: newHCP(namespace, "", costCenter),
-			newHCP: newHCP(namespace, "", hyperv1.AWSClusterResourceTag{
+			oldHCP: newHCP("", costCenter),
+			newHCP: newHCP("", hyperv1.AWSClusterResourceTag{
 				Key: "cost-center", Value: "1234", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyAllow,
 			}),
 			expectedResult: true,
 		},
 		"When a resource tag is added, it should accept the event": {
-			oldHCP:         newHCP(namespace, ""),
-			newHCP:         newHCP(namespace, "", costCenter),
+			oldHCP:         newHCP(""),
+			newHCP:         newHCP("", costCenter),
 			expectedResult: true,
 		},
 		"When neither the instance profile nor the resource tags change, it should reject the event": {
-			oldHCP:         newHCP(namespace, "example-4x7kq-worker", costCenter),
-			newHCP:         newHCP(namespace, "example-4x7kq-worker", costCenter),
-			expectedResult: false,
-		},
-		"When the HostedControlPlane is in another namespace, it should reject the event": {
-			oldHCP:         newHCP("clusters-other", "", costCenter),
-			newHCP:         newHCP("clusters-other", "", hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
+			oldHCP:         newHCP("example-4x7kq-worker", costCenter),
+			newHCP:         newHCP("example-4x7kq-worker", costCenter),
 			expectedResult: false,
 		},
 	}
@@ -1886,79 +1717,10 @@ func TestHCPPredicate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			r := &EC2NodeClassReconciler{namespace: namespace}
+			r := &EC2NodeClassReconciler{}
 
 			result := r.hcpPredicate().Update(event.UpdateEvent{ObjectOld: tc.oldHCP, ObjectNew: tc.newHCP})
 			g.Expect(result).To(Equal(tc.expectedResult))
-		})
-	}
-}
-
-func TestAMISelectorTerms(t *testing.T) {
-	tests := map[string]struct {
-		userDataSecret *corev1.Secret
-		platform       hyperv1.PlatformType
-		expectedError  string
-		expectedAMIs   []awskarpenterv1.AMISelectorTerm
-	}{
-		"When user data secret is created for supported platform and labels exist, it should return the expected AMIs": {
-			platform: hyperv1.AWSPlatform,
-			userDataSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "user-data-secret",
-					Namespace: "test-namespace",
-					Labels: map[string]string{
-						archToAMILabelKey(hyperv1.ArchitectureAMD64): "ami-123",
-						archToAMILabelKey(hyperv1.ArchitectureARM64): "ami-456",
-					},
-				},
-			},
-			expectedAMIs: []awskarpenterv1.AMISelectorTerm{
-				{
-					ID: "ami-123",
-				},
-				{
-					ID: "ami-456",
-				},
-			},
-		},
-		"When user data secret is created for unsupported platform and labels exist, it should return an error": {
-			platform: hyperv1.AzurePlatform,
-			userDataSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "user-data-secret",
-					Namespace: "test-namespace",
-					Labels: map[string]string{
-						archToAMILabelKey(hyperv1.ArchitectureAMD64): "ami-123",
-						archToAMILabelKey(hyperv1.ArchitectureARM64): "ami-456",
-					},
-				},
-			},
-			expectedError: "failed to get supported architectures: unsupported platform: Azure",
-		},
-		"When user data secret is created for supported platform but no AMI labels exist, it should return an error": {
-			platform: hyperv1.AWSPlatform,
-			userDataSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "user-data-secret",
-					Namespace: "test-namespace",
-					Labels:    map[string]string{},
-				},
-			},
-			expectedError: "no AMIs found for supported architectures: [amd64 arm64]",
-		},
-	}
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			g := NewWithT(t)
-			amis, err := AMISelectorTerms(tc.userDataSecret, tc.platform)
-			if tc.expectedError != "" {
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(err.Error()).To(Equal(tc.expectedError))
-				return
-			}
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(amis).To(Equal(tc.expectedAMIs))
 		})
 	}
 }
@@ -1997,17 +1759,17 @@ func TestReconcileKarpenterSubnetsConfigMap(t *testing.T) {
 		},
 		"When OpenshiftEC2NodeClass resources have subnets in status, it should create ConfigMap with aggregated subnet IDs": {
 			hostedObjects: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "nodeclass-1",
 					},
-					Spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-						SubnetSelectorTerms: []karpenterv1.SubnetSelectorTerm{
+					Spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+						SubnetSelectorTerms: []openshiftkarpenterv1.SubnetSelectorTerm{
 							{ID: "subnet-aaa"},
 						},
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{
-						Subnets: []karpenterv1.Subnet{
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
+						Subnets: []openshiftkarpenterv1.Subnet{
 							{ID: "subnet-aaa", Zone: "us-east-1a"},
 							{ID: "subnet-bbb", Zone: "us-east-1b"},
 						},
@@ -2020,33 +1782,33 @@ func TestReconcileKarpenterSubnetsConfigMap(t *testing.T) {
 		},
 		"When multiple OpenshiftEC2NodeClass resources have overlapping subnets, it should deduplicate subnet IDs": {
 			hostedObjects: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "nodeclass-1",
 					},
-					Spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-						SubnetSelectorTerms: []karpenterv1.SubnetSelectorTerm{
+					Spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+						SubnetSelectorTerms: []openshiftkarpenterv1.SubnetSelectorTerm{
 							{ID: "subnet-shared"},
 						},
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{
-						Subnets: []karpenterv1.Subnet{
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
+						Subnets: []openshiftkarpenterv1.Subnet{
 							{ID: "subnet-shared", Zone: "us-east-1a"},
 							{ID: "subnet-aaa", Zone: "us-east-1b"},
 						},
 					},
 				},
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "nodeclass-2",
 					},
-					Spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-						SubnetSelectorTerms: []karpenterv1.SubnetSelectorTerm{
+					Spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+						SubnetSelectorTerms: []openshiftkarpenterv1.SubnetSelectorTerm{
 							{ID: "subnet-bbb"},
 						},
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{
-						Subnets: []karpenterv1.Subnet{
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
+						Subnets: []openshiftkarpenterv1.Subnet{
 							{ID: "subnet-shared", Zone: "us-east-1a"},
 							{ID: "subnet-bbb", Zone: "us-east-1c"},
 						},
@@ -2059,15 +1821,15 @@ func TestReconcileKarpenterSubnetsConfigMap(t *testing.T) {
 		},
 		"When OpenshiftEC2NodeClass has nil SubnetSelectorTerms, it should still include its status subnets": {
 			hostedObjects: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "default",
 					},
-					Spec: karpenterv1.OpenshiftEC2NodeClassSpec{
+					Spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
 						SubnetSelectorTerms: nil,
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{
-						Subnets: []karpenterv1.Subnet{
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
+						Subnets: []openshiftkarpenterv1.Subnet{
 							{ID: "subnet-default-1", Zone: "us-east-1a"},
 							{ID: "subnet-default-2", Zone: "us-east-1b"},
 						},
@@ -2080,40 +1842,40 @@ func TestReconcileKarpenterSubnetsConfigMap(t *testing.T) {
 		},
 		"When OpenshiftEC2NodeClass resources have no subnets in status, it should delete the ConfigMap": {
 			hostedObjects: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "nodeclass-1",
 					},
-					Spec: karpenterv1.OpenshiftEC2NodeClassSpec{
-						SubnetSelectorTerms: []karpenterv1.SubnetSelectorTerm{
+					Spec: openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
+						SubnetSelectorTerms: []openshiftkarpenterv1.SubnetSelectorTerm{
 							{ID: "subnet-aaa"},
 						},
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{},
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{},
 				},
 			},
 			expectConfigMap: false,
 		},
 		"When an OpenshiftEC2NodeClass is being deleted, it should exclude its subnets from the ConfigMap": {
 			hostedObjects: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              "being-deleted",
 						DeletionTimestamp: &metav1.Time{Time: time.Now()},
 						Finalizers:        []string{finalizer},
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{
-						Subnets: []karpenterv1.Subnet{
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
+						Subnets: []openshiftkarpenterv1.Subnet{
 							{ID: "subnet-being-deleted", Zone: "us-east-1a"},
 						},
 					},
 				},
-				&karpenterv1.OpenshiftEC2NodeClass{
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "remaining",
 					},
-					Status: karpenterv1.OpenshiftEC2NodeClassStatus{
-						Subnets: []karpenterv1.Subnet{
+					Status: openshiftkarpenterv1.OpenshiftEC2NodeClassStatus{
+						Subnets: []openshiftkarpenterv1.Subnet{
 							{ID: "subnet-keep", Zone: "us-east-1b"},
 						},
 					},
@@ -2136,13 +1898,13 @@ func TestReconcileKarpenterSubnetsConfigMap(t *testing.T) {
 
 			hostedClient := fake.NewClientBuilder().
 				WithScheme(testScheme()).
-				WithStatusSubresource(&karpenterv1.OpenshiftEC2NodeClass{}).
+				WithStatusSubresource(&openshiftkarpenterv1.OpenshiftEC2NodeClass{}).
 				WithObjects(tc.hostedObjects...).
 				Build()
 
 			// Patch status for guest objects since fake client WithObjects doesn't set status
 			for _, obj := range tc.hostedObjects {
-				if nc, ok := obj.(*karpenterv1.OpenshiftEC2NodeClass); ok {
+				if nc, ok := obj.(*openshiftkarpenterv1.OpenshiftEC2NodeClass); ok {
 					if err := hostedClient.Status().Update(context.Background(), nc); err != nil {
 						t.Fatalf("failed to set status on OpenshiftEC2NodeClass: %v", err)
 					}
@@ -2193,15 +1955,15 @@ func TestMapVAPToOpenShiftEC2NodeClasses(t *testing.T) {
 		"When the VAP matches the expected name, it should enqueue all OpenshiftEC2NodeClasses": {
 			vapName: "karpenter.ec2nodeclass.hypershift.io",
 			nodeClasses: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
-				&karpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-2"}},
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-2"}},
 			},
 			expectedRequests: 2,
 		},
 		"When the VAP name does not match, it should not enqueue any requests": {
 			vapName: "unrelated-policy",
 			nodeClasses: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
 			},
 			expectedRequests: 0,
 		},
@@ -2242,15 +2004,15 @@ func TestMapVAPBindingToOpenShiftEC2NodeClasses(t *testing.T) {
 		"When the VAPBinding matches the expected name, it should enqueue all OpenshiftEC2NodeClasses": {
 			bindingName: "karpenter-binding.ec2nodeclass.hypershift.io",
 			nodeClasses: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
-				&karpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-2"}},
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-2"}},
 			},
 			expectedRequests: 2,
 		},
 		"When the VAPBinding name does not match, it should not enqueue any requests": {
 			bindingName: "unrelated-binding",
 			nodeClasses: []client.Object{
-				&karpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
+				&openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: "nc-1"}},
 			},
 			expectedRequests: 0,
 		},
@@ -2286,7 +2048,7 @@ func testScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = hyperv1.AddToScheme(scheme)
-	_ = karpenterv1.AddToScheme(scheme)
+	_ = openshiftkarpenterv1.AddToScheme(scheme)
 	awsKarpenterGV := schema.GroupVersion{Group: "karpenter.k8s.aws", Version: "v1"}
 	metav1.AddToGroupVersion(scheme, awsKarpenterGV)
 	scheme.AddKnownTypes(awsKarpenterGV, &awskarpenterv1.EC2NodeClass{}, &awskarpenterv1.EC2NodeClassList{})

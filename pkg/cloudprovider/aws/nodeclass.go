@@ -1,8 +1,6 @@
 package aws
 
 import (
-	"fmt"
-
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 	"github.com/openshift/karpenter-operator/pkg/assets"
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider/common"
@@ -36,17 +34,12 @@ func (hcpEC2NodeClassProvider) DefaultNodeClass(infraID string) (client.Object, 
 		nodeClass.Spec = openshiftkarpenterv1.OpenshiftEC2NodeClassSpec{
 			SubnetSelectorTerms: []openshiftkarpenterv1.SubnetSelectorTerm{
 				{
-					Tags: map[string]string{
-						"kubernetes.io/role/internal-elb":                "1",
-						fmt.Sprintf("kubernetes.io/cluster/%s", infraID): "*",
-					},
+					Tags: ec2nodeclass.DefaultSubnetSelectorTags(infraID),
 				},
 			},
 			SecurityGroupSelectorTerms: []openshiftkarpenterv1.SecurityGroupSelectorTerm{
 				{
-					Tags: map[string]string{
-						"karpenter.sh/discovery": infraID,
-					},
+					Tags: ec2nodeclass.DefaultSecurityGroupSelectorTags(infraID),
 				},
 			},
 		}

@@ -2,9 +2,11 @@ package defaultnodeclass
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
+	"github.com/openshift/karpenter-operator/pkg/hypershift"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
@@ -111,18 +113,14 @@ func nodeClassPredicate() predicate.Predicate {
 }
 
 func (c *Controller) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	// Each standalone operator instance is scoped to one HCP namespace with a single HCP resource.
-	hcpList := &hyperv1.HostedControlPlaneList{}
-	if err := c.managementClient.List(ctx, hcpList, client.InNamespace(c.config.Namespace)); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to list hosted control planes: %w", err)
-	}
-	if len(hcpList.Items) == 0 {
+	hcp, err := hypershift.GetHostedControlPlane(ctx, c.managementClient, c.config.Namespace)
+	if errors.Is(err, hypershift.ErrHostedControlPlaneNotFound) {
 		return ctrl.Result{}, nil
 	}
-	if len(hcpList.Items) > 1 {
-		return ctrl.Result{}, fmt.Errorf("expected one hosted control plane in namespace %q, found %d", c.config.Namespace, len(hcpList.Items))
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, c.reconcileHCP(ctx, &hcpList.Items[0])
+	return ctrl.Result{}, c.reconcileHCP(ctx, hcp)
 }
 
 func (c *Controller) reconcileHCP(ctx context.Context, hcp *hyperv1.HostedControlPlane) error {

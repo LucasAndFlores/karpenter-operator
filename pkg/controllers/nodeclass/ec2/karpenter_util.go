@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	karpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
+	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
 
@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func karpenterBlockDeviceMappingFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) []*awskarpenterv1.BlockDeviceMapping {
+func karpenterBlockDeviceMappingFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) []*awskarpenterv1.BlockDeviceMapping {
 	if spec.BlockDeviceMappings == nil {
 		return nil
 	}
@@ -21,7 +21,7 @@ func karpenterBlockDeviceMappingFromNodeClassSpec(spec karpenterv1.OpenshiftEC2N
 	for _, mapping := range spec.BlockDeviceMappings {
 		blockDeviceMapping = append(blockDeviceMapping, &awskarpenterv1.BlockDeviceMapping{
 			DeviceName: ptrIfNonEmpty(mapping.DeviceName),
-			RootVolume: mapping.RootVolume == karpenterv1.RootVolumeDesignationRootVolume,
+			RootVolume: mapping.RootVolume == openshiftkarpenterv1.RootVolumeDesignationRootVolume,
 			EBS:        karpenterBlockDeviceFromBlockDevice(mapping.EBS),
 		})
 	}
@@ -29,7 +29,7 @@ func karpenterBlockDeviceMappingFromNodeClassSpec(spec karpenterv1.OpenshiftEC2N
 	return blockDeviceMapping
 }
 
-func karpenterCapacityReservationSelectorTermsFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) []awskarpenterv1.CapacityReservationSelectorTerm {
+func karpenterCapacityReservationSelectorTermsFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) []awskarpenterv1.CapacityReservationSelectorTerm {
 	if spec.CapacityReservationSelectorTerms == nil {
 		return nil
 	}
@@ -47,66 +47,66 @@ func karpenterCapacityReservationSelectorTermsFromNodeClassSpec(spec karpenterv1
 	return terms
 }
 
-func karpenterInstanceStorePolicyFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) *awskarpenterv1.InstanceStorePolicy {
+func karpenterInstanceStorePolicyFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) *awskarpenterv1.InstanceStorePolicy {
 	if spec.InstanceStorePolicy == "" {
 		return nil
 	}
 	return (*awskarpenterv1.InstanceStorePolicy)(&spec.InstanceStorePolicy)
 }
 
-func karpenterAssociatePublicIPAddressFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) *bool {
+func karpenterAssociatePublicIPAddressFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) *bool {
 	switch spec.IPAddressAssociation {
-	case karpenterv1.IPAddressAssociationPublic:
+	case openshiftkarpenterv1.IPAddressAssociationPublic:
 		return new(true)
-	case karpenterv1.IPAddressAssociationSubnetDefault:
+	case openshiftkarpenterv1.IPAddressAssociationSubnetDefault:
 		return new(false)
 	default:
 		return nil
 	}
 }
 
-func karpenterMetadataOptionsFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) *awskarpenterv1.MetadataOptions { //nolint:gocyclo
+func karpenterMetadataOptionsFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) *awskarpenterv1.MetadataOptions { //nolint:gocyclo
 	mo := spec.MetadataOptions
 	if mo.Access == "" && mo.HTTPIPProtocol == "" && mo.HTTPPutResponseHopLimit == 0 && mo.HTTPTokens == "" {
 		return nil
 	}
 	opts := &awskarpenterv1.MetadataOptions{}
 	switch mo.Access {
-	case karpenterv1.MetadataAccessHTTPEndpoint:
+	case openshiftkarpenterv1.MetadataAccessHTTPEndpoint:
 		opts.HTTPEndpoint = new("enabled")
-	case karpenterv1.MetadataAccessNone:
+	case openshiftkarpenterv1.MetadataAccessNone:
 		opts.HTTPEndpoint = new("disabled")
 	}
 	switch mo.HTTPIPProtocol {
-	case karpenterv1.MetadataHTTPProtocolIPv6:
+	case openshiftkarpenterv1.MetadataHTTPProtocolIPv6:
 		opts.HTTPProtocolIPv6 = new("enabled")
-	case karpenterv1.MetadataHTTPProtocolIPv4:
+	case openshiftkarpenterv1.MetadataHTTPProtocolIPv4:
 		opts.HTTPProtocolIPv6 = new("disabled")
 	}
 	if mo.HTTPPutResponseHopLimit != 0 {
 		opts.HTTPPutResponseHopLimit = new(mo.HTTPPutResponseHopLimit)
 	}
 	switch mo.HTTPTokens {
-	case karpenterv1.MetadataHTTPTokensStateRequired:
+	case openshiftkarpenterv1.MetadataHTTPTokensStateRequired:
 		opts.HTTPTokens = new("required")
-	case karpenterv1.MetadataHTTPTokensStateOptional:
+	case openshiftkarpenterv1.MetadataHTTPTokensStateOptional:
 		opts.HTTPTokens = new("optional")
 	}
 	return opts
 }
 
-func karpenterDetailedMonitoringFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) *bool {
+func karpenterDetailedMonitoringFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) *bool {
 	switch spec.Monitoring {
-	case karpenterv1.MonitoringStateDetailed:
+	case openshiftkarpenterv1.MonitoringStateDetailed:
 		return new(true)
-	case karpenterv1.MonitoringStateBasic:
+	case openshiftkarpenterv1.MonitoringStateBasic:
 		return new(false)
 	default:
 		return nil
 	}
 }
 
-func karpenterBlockDeviceFromBlockDevice(bd karpenterv1.BlockDevice) *awskarpenterv1.BlockDevice {
+func karpenterBlockDeviceFromBlockDevice(bd openshiftkarpenterv1.BlockDevice) *awskarpenterv1.BlockDevice {
 	return &awskarpenterv1.BlockDevice{
 		DeleteOnTermination: deleteOnTerminationToBool(bd.DeleteOnTermination),
 		Encrypted:           encryptionStateToBool(bd.Encrypted),
@@ -119,22 +119,22 @@ func karpenterBlockDeviceFromBlockDevice(bd karpenterv1.BlockDevice) *awskarpent
 	}
 }
 
-func deleteOnTerminationToBool(policy karpenterv1.DeleteOnTerminationPolicy) *bool {
+func deleteOnTerminationToBool(policy openshiftkarpenterv1.DeleteOnTerminationPolicy) *bool {
 	switch policy {
-	case karpenterv1.DeleteOnTerminationPolicyDelete:
+	case openshiftkarpenterv1.DeleteOnTerminationPolicyDelete:
 		return new(true)
-	case karpenterv1.DeleteOnTerminationPolicyRetain:
+	case openshiftkarpenterv1.DeleteOnTerminationPolicyRetain:
 		return new(false)
 	default:
 		return nil
 	}
 }
 
-func encryptionStateToBool(state karpenterv1.EncryptionState) *bool {
+func encryptionStateToBool(state openshiftkarpenterv1.EncryptionState) *bool {
 	switch state {
-	case karpenterv1.EncryptionStateEncrypted:
+	case openshiftkarpenterv1.EncryptionStateEncrypted:
 		return new(true)
-	case karpenterv1.EncryptionStateUnencrypted:
+	case openshiftkarpenterv1.EncryptionStateUnencrypted:
 		return new(false)
 	default:
 		return nil
@@ -149,7 +149,7 @@ func volumeSizeGiBToQuantity(sizeGiB int64) *resource.Quantity {
 	return &q
 }
 
-func volumeTypeToKarpenter(vt karpenterv1.VolumeType) *string {
+func volumeTypeToKarpenter(vt openshiftkarpenterv1.VolumeType) *string {
 	if vt == "" {
 		return nil
 	}
@@ -158,7 +158,7 @@ func volumeTypeToKarpenter(vt karpenterv1.VolumeType) *string {
 	return &v
 }
 
-func karpenterKubeletConfigurationFromNodeClassSpec(spec karpenterv1.OpenshiftEC2NodeClassSpec) *awskarpenterv1.KubeletConfiguration {
+func karpenterKubeletConfigurationFromNodeClassSpec(spec openshiftkarpenterv1.OpenshiftEC2NodeClassSpec) *awskarpenterv1.KubeletConfiguration {
 	if !spec.Kubelet.HasTypedFields() {
 		return nil
 	}
@@ -181,7 +181,7 @@ func karpenterKubeletConfigurationFromNodeClassSpec(spec karpenterv1.OpenshiftEC
 // EvictionThreshold is a type definition (not a type alias) because controller-gen's deepcopy
 // generator doesn't handle *types.Alias (https://github.com/kubernetes-sigs/controller-tools/issues/988),
 // so we can't use `type EvictionThreshold = string` which would make this copy unnecessary.
-func evictionThresholdMapToStringMap(m map[string]karpenterv1.EvictionThreshold) map[string]string {
+func evictionThresholdMapToStringMap(m map[string]openshiftkarpenterv1.EvictionThreshold) map[string]string {
 	if m == nil {
 		return nil
 	}
