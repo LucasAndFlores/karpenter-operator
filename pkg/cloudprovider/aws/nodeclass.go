@@ -57,7 +57,7 @@ func (hcpEC2NodeClassProvider) CRDs() []*apiextensionsv1.CustomResourceDefinitio
 	return assets.AWSHCPCRDs
 }
 
-// NewController returns the controller reconciling OpenshiftEC2NodeClasses into EC2NodeClasses.
-func (hcpEC2NodeClassProvider) NewController(hostedCluster cluster.Cluster, namespace string) common.NodeClassController {
-	return ec2nodeclass.NewEC2NodeClassReconciler(hostedCluster, namespace)
+// NewControllers returns the controller reconciling OpenshiftEC2NodeClasses into EC2NodeClasses.
+func (hcpEC2NodeClassProvider) NewControllers(hostedCluster cluster.Cluster, namespace string) []common.NodeClassController {
+	return []common.NodeClassController{ec2nodeclass.NewEC2NodeClassReconciler(hostedCluster, namespace)}
 }

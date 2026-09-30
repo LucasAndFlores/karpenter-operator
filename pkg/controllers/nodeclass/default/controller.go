@@ -142,6 +142,9 @@ func (c *Controller) reconcileHCP(ctx context.Context, hcp *hyperv1beta1.HostedC
 	if err != nil {
 		return err
 	}
+	if defaultNodeClass == nil {
+		return nil
+	}
 	op, err := controllerutil.CreateOrUpdate(ctx, c.hostedClient, defaultNodeClass, mutate)
 	if err != nil {
 		return fmt.Errorf("reconciling default NodeClass: %w", err)

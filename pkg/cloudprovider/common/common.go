@@ -46,13 +46,14 @@ type NodeIdentityVerifier interface {
 // HCPNodeClassProvider describes platform-specific NodeClass support for hosted control planes.
 type HCPNodeClassProvider interface {
 	// DefaultNodeClass returns a target object and mutation function for CreateOrUpdate.
+	// It returns nil when the platform has no default NodeClass.
 	DefaultNodeClass(infraID string) (client.Object, controllerutil.MutateFn, error)
 	// WatchObject returns an empty typed object used to register the hosted-cluster watch.
 	WatchObject() client.Object
 	// CRDs returns the platform NodeClass CRDs installed into the hosted cluster.
 	CRDs() []*apiextensionsv1.CustomResourceDefinition
-	// NewController returns the controller reconciling platform NodeClasses in the hosted cluster.
-	NewController(hostedCluster cluster.Cluster, namespace string) NodeClassController
+	// NewControllers returns the controllers reconciling platform NodeClasses in the hosted cluster.
+	NewControllers(hostedCluster cluster.Cluster, namespace string) []NodeClassController
 }
 
 // NodeClassController reconciles platform NodeClasses in the hosted cluster.
