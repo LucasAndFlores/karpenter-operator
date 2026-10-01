@@ -13,6 +13,10 @@ import (
 	"github.com/samber/lo"
 )
 
+func karpenterSelector() *metaac.LabelSelectorApplyConfiguration {
+	return metaac.LabelSelector().WithMatchLabels(map[string]string{appLabelKey: karpenterName})
+}
+
 // buildDeployment constructs the karpenter Deployment apply configuration.
 func buildDeployment(cfg *operandConfig, ownerRef *metaac.OwnerReferenceApplyConfiguration) (*appsac.DeploymentApplyConfiguration, error) {
 	selectorLabels := map[string]string{appLabelKey: karpenterName}
@@ -40,7 +44,7 @@ func buildDeployment(cfg *operandConfig, ownerRef *metaac.OwnerReferenceApplyCon
 		WithLabels(deploymentLabels).
 		WithSpec(appsac.DeploymentSpec().
 			WithReplicas(1).
-			WithSelector(metaac.LabelSelector().WithMatchLabels(selectorLabels)).
+			WithSelector(karpenterSelector()).
 			WithTemplate(coreac.PodTemplateSpec().
 				WithAnnotations(map[string]string{
 					targetWorkloadManagementAnnotation: targetWorkloadSchedulingPriority,
