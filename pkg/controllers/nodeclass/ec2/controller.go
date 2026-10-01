@@ -422,7 +422,7 @@ func (r *EC2NodeClassReconciler) reconcileStatus(ctx context.Context, ec2NodeCla
 	setAWSResourceTagConflictCondition(openshiftNodeClass, hcp)
 
 	if !reflect.DeepEqual(originalObj.Status, openshiftNodeClass.Status) {
-		if err := r.hostedClient.Status().Patch(ctx, openshiftNodeClass, client.MergeFrom(originalObj)); err != nil {
+		if err := r.hostedClient.Status().Patch(ctx, openshiftNodeClass, client.MergeFromWithOptions(originalObj, client.MergeFromWithOptimisticLock{})); err != nil {
 			return fmt.Errorf("failed to update status: %w", err)
 		}
 	}
