@@ -10,6 +10,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	karpenterv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 )
 
@@ -24,6 +26,8 @@ type InfrastructureInfo struct {
 // CloudProvider abstracts platform-specific behavior the operator delegates to each implementation.
 type CloudProvider interface {
 	AddToScheme(s *runtime.Scheme) error
+	// DefaultNodeClassProvider returns nil when platform-specific default NodeClass support is unavailable.
+	DefaultNodeClassProvider() DefaultNodeClassProvider
 	KarpenterImage() string
 	OperandConfig() OperandCloudConfig
 	CRDs() []*apiextensionsv1.CustomResourceDefinition
@@ -35,6 +39,14 @@ type CloudProvider interface {
 // NodeIdentityVerifier verifies that a node identity belongs to one or more NodeClaims.
 type NodeIdentityVerifier interface {
 	Verify(ctx context.Context, nodeName string, nodeClaims []karpenterv1.NodeClaim) (bool, error)
+}
+
+// DefaultNodeClassProvider describes platform-specific default NodeClass behavior.
+type DefaultNodeClassProvider interface {
+	// DefaultNodeClass returns a target object and mutation function for CreateOrUpdate.
+	DefaultNodeClass(infraID string) (client.Object, controllerutil.MutateFn, error)
+	// WatchObject returns an empty typed object used to register the hosted-cluster watch.
+	WatchObject() client.Object
 }
 
 // RBACAssets groups all operand RBAC resources (namespace-scoped and cluster-scoped).

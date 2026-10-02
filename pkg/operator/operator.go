@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 	autoscalingv1alpha1 "github.com/openshift/karpenter-operator/pkg/apis/autoscaling/v1alpha1"
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider"
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider/common"
@@ -39,6 +40,7 @@ func init() {
 	utilruntime.Must(configv1.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(autoscalingv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(openshiftkarpenterv1.AddToScheme(scheme))
 	utilruntime.Must(hyperv1.AddToScheme(scheme))
 
 	karpenterGV := schema.GroupVersion{Group: karpenterapis.Group, Version: "v1"}

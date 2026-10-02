@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/karpenter-operator/pkg/controllers/crd"
 	"github.com/openshift/karpenter-operator/pkg/controllers/karpenter"
 	"github.com/openshift/karpenter-operator/pkg/controllers/machineapprover"
+	defaultnodeclass "github.com/openshift/karpenter-operator/pkg/controllers/nodeclass/default"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -50,15 +51,23 @@ func NewControllers(mgr ctrl.Manager, cfg *Config) []Controller {
 	controllers = append(controllers, crd.NewController(mgr, crdCfg))
 
 	if cfg.ManagementCluster {
-		controllers = append(controllers,
-			karpenter.NewHCPController(mgr.GetClient(), &karpenter.HCPControllerConfig{
-				Namespace:        cfg.Namespace,
-				KarpenterImage:   cfg.KarpenterImage,
-				ClusterName:      cfg.ClusterName,
-				ClusterEndpoint:  cfg.ClusterEndpoint,
-				CloudProvider:    cfg.CloudProvider,
-				TokenMinterImage: cfg.TokenMinterImage,
-			}),
+		if cfg.HostedCluster != nil {
+			if provider := cfg.CloudProvider.DefaultNodeClassProvider(); provider != nil {
+				controllers = append(controllers, defaultnodeclass.NewController(mgr, &defaultnodeclass.ControllerConfig{
+					HostedCluster: cfg.HostedCluster,
+					Namespace:     cfg.Namespace,
+					Provider:      provider,
+				}))
+			}
+		}
+		controllers = append(controllers, karpenter.NewHCPController(mgr.GetClient(), &karpenter.HCPControllerConfig{
+			Namespace:        cfg.Namespace,
+			KarpenterImage:   cfg.KarpenterImage,
+			ClusterName:      cfg.ClusterName,
+			ClusterEndpoint:  cfg.ClusterEndpoint,
+			CloudProvider:    cfg.CloudProvider,
+			TokenMinterImage: cfg.TokenMinterImage,
+		}),
 		)
 
 		if controller := newMachineApproverController(cfg); controller != nil {

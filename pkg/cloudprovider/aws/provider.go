@@ -50,6 +50,11 @@ func New(ctx context.Context, infra common.InfrastructureInfo) (*Provider, error
 	}, nil
 }
 
+// DefaultNodeClassProvider returns the provider's default NodeClass provider.
+func (p *Provider) DefaultNodeClassProvider() common.DefaultNodeClassProvider {
+	return defaultEC2NodeClassProvider{}
+}
+
 // NodeIdentityVerifier returns the provider's node identity verifier.
 func (p *Provider) NodeIdentityVerifier() common.NodeIdentityVerifier {
 	return &nodeIdentityVerifier{ec2Client: p.ec2Client}

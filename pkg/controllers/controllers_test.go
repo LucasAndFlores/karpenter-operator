@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	cloudaws "github.com/openshift/karpenter-operator/pkg/cloudprovider/aws"
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider/azure"
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider/common"
 	testfake "github.com/openshift/karpenter-operator/test/pkg/fake"
@@ -66,11 +67,14 @@ func TestNewControllers(t *testing.T) {
 			wantControllers:   []string{"crd", "karpenter"},
 		},
 		{
-			name:              "When running in HCP AWS mode it should also enable the machine approver",
-			cloudProvider:     &testAWSCloudProvider{CloudProvider: &testfake.CloudProvider{Image: "test:latest"}},
+			name: "When running in HCP AWS mode it should also enable the machine approver and default NodeClass controller",
+			cloudProvider: &testAWSCloudProvider{CloudProvider: &testfake.CloudProvider{
+				Image:            "test:latest",
+				DefaultNodeClass: (&cloudaws.Provider{}).DefaultNodeClassProvider(),
+			}},
 			hostedCluster:     &testfake.Cluster{Cl: fakeclient.NewClientBuilder().Build(), Ca: &testfake.Cache{}},
 			managementCluster: true,
-			wantControllers:   []string{"crd", "karpenter", "karpenter-machine-approver"},
+			wantControllers:   []string{"crd", "default-nodeclass", "karpenter", "karpenter-machine-approver"},
 		},
 		{
 			name:              "When running in HCP Azure mode it should only enable core controllers",

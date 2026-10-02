@@ -16,7 +16,7 @@ require (
 	github.com/samber/lo v1.53.0
 	k8s.io/api v0.36.2
 	k8s.io/apiextensions-apiserver v0.36.2
-	k8s.io/apimachinery v0.36.2
+	k8s.io/apimachinery v0.36.3
 	k8s.io/client-go v0.36.2
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 	sigs.k8s.io/controller-runtime v0.24.1
@@ -72,6 +72,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/openshift/karpenter-operator/api v0.0.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
@@ -116,3 +117,5 @@ replace github.com/aws/karpenter-provider-aws => github.com/openshift/aws-karpen
 replace github.com/Azure/karpenter-provider-azure => github.com/openshift/Azure-karpenter-provider-azure v0.0.0-20260826161449-579739a231a1
 
 replace sigs.k8s.io/karpenter => github.com/openshift/kubernetes-sigs-karpenter v0.0.0-20260721214330-2b8ed744bf1c
+
+replace github.com/openshift/karpenter-operator/api => ./api
