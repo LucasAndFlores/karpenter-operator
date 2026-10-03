@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/karpenter-operator/pkg/cloudprovider/common"
 	testfake "github.com/openshift/karpenter-operator/test/pkg/fake"
 
+	configv1 "github.com/openshift/api/config/v1"
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -84,6 +85,13 @@ func hcpWithProvisioner(name hyperv1.Provisioner) *hyperv1.HostedControlPlane {
 				},
 			},
 		},
+		Status: hyperv1.HostedControlPlaneStatus{
+			ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+				Desired: configv1.Release{
+					Version: "4.18.0",
+				},
+			},
+		},
 	}
 }
 
@@ -127,6 +135,18 @@ func TestHCPOperandReconcilePredicate(t *testing.T) {
 				ObjectNew: func() *hyperv1.HostedControlPlane {
 					updated := hcp.DeepCopy()
 					updated.Spec.AutoNode.Provisioner.Name = ""
+					return updated
+				}(),
+			},
+			expect: true,
+		},
+		{
+			name: "When control plane version changes it should reconcile",
+			event: event.UpdateEvent{
+				ObjectOld: hcp,
+				ObjectNew: func() *hyperv1.HostedControlPlane {
+					updated := hcp.DeepCopy()
+					updated.Status.ControlPlaneVersion.Desired.Version = "4.19.0"
 					return updated
 				}(),
 			},
