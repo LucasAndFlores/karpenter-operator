@@ -135,6 +135,7 @@ func Run(ctx context.Context, opts Options) error {
 	if err := controllers.Setup(mgr, controllers.NewControllers(mgr, cfg)...); err != nil {
 		return err
 	}
+	go controllers.SetupOperatorInfoMetricWithRetry(ctx, mgr.GetAPIReader(), opts.Namespace)
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		return fmt.Errorf("failed to set up health check: %w", err)
