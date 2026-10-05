@@ -110,12 +110,11 @@ func (r *EC2NodeClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *EC2NodeClassReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) { //nolint:gocyclo
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling", "req", req)
 
 	hcp, err := hypershift.GetHostedControlPlane(ctx, r.managementClient, r.namespace)
 	if err != nil {
 		if errors.Is(err, hypershift.ErrHostedControlPlaneNotFound) {
-			log.Info("HostedControlPlane not found, requeueing")
+			log.V(1).Info("HostedControlPlane not found, requeueing")
 			return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		return ctrl.Result{}, err
@@ -128,10 +127,10 @@ func (r *EC2NodeClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	openshiftEC2NodeClass := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 	if err := r.hostedClient.Get(ctx, req.NamespacedName, openshiftEC2NodeClass); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("openshiftEC2NodeClass not found, aborting reconcile", "name", req.NamespacedName)
+			log.V(1).Info("OpenshiftEC2NodeClass not found, aborting reconcile")
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to get openshiftEC2NodeClass %q: %w", req.NamespacedName, err)
+		return ctrl.Result{}, fmt.Errorf("getting openshiftEC2NodeClass: %w", err)
 	}
 
 	ec2NodeClass := &awskarpenterv1.EC2NodeClass{
@@ -154,14 +153,14 @@ func (r *EC2NodeClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// Update ConfigMap to remove this OpenshiftEC2NodeClass's subnets.
 		// This handles the case where other OpenshiftEC2NodeClass resources still exist.
 		if err := r.reconcileKarpenterSubnetsConfigMap(ctx, hcp); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile karpenter subnets configmap during deletion: %w", err)
+			return ctrl.Result{}, fmt.Errorf("reconciling karpenter subnets configmap during deletion: %w", err)
 		}
 
 		if controllerutil.ContainsFinalizer(openshiftEC2NodeClass, finalizer) {
 			original := openshiftEC2NodeClass.DeepCopy()
 			controllerutil.RemoveFinalizer(openshiftEC2NodeClass, finalizer)
 			if err := r.hostedClient.Patch(ctx, openshiftEC2NodeClass, client.MergeFromWithOptions(original, client.MergeFromWithOptimisticLock{})); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to remove finalizer from openshiftEC2NodeClass: %w", err)
+				return ctrl.Result{}, fmt.Errorf("removing finalizer from openshiftEC2NodeClass: %w", err)
 			}
 		}
 		return ctrl.Result{}, nil
@@ -171,7 +170,7 @@ func (r *EC2NodeClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		original := openshiftEC2NodeClass.DeepCopy()
 		controllerutil.AddFinalizer(openshiftEC2NodeClass, finalizer)
 		if err := r.hostedClient.Patch(ctx, openshiftEC2NodeClass, client.MergeFromWithOptions(original, client.MergeFromWithOptimisticLock{})); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer to openshiftEC2NodeClass: %w", err)
+			return ctrl.Result{}, fmt.Errorf("adding finalizer to openshiftEC2NodeClass: %w", err)
 		}
 	}
 
@@ -180,19 +179,25 @@ func (r *EC2NodeClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if errors.Is(err, errKarpenterUserDataSecretNotFound) {
 			// Don't treat this as an error
 			// ec2nodeclass controller might have been faster than karpenterignition controller to generate the user data secret
-			log.Info(err.Error())
+			log.V(1).Info("User data secret not found, requeueing", "err", err)
 			return ctrl.Result{RequeueAfter: time.Second * 1}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.hostedClient, ec2NodeClass, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.hostedClient, ec2NodeClass, func() error {
 		if err := controllerutil.SetControllerReference(openshiftEC2NodeClass, ec2NodeClass, r.hostedClient.Scheme()); err != nil {
 			return err
 		}
 		return reconcileEC2NodeClass(ctx, ec2NodeClass, openshiftEC2NodeClass, hcp, userDataSecret)
-	}); err != nil {
+	})
+	if err != nil {
 		return ctrl.Result{}, err
+	}
+	// Updates are not logged: the API server defaults fields the desired spec leaves unset,
+	// so CreateOrUpdate reports an update on every reconcile.
+	if op == controllerutil.OperationResultCreated {
+		log.Info("Created EC2NodeClass", "ec2nodeclass", ec2NodeClass.Name)
 	}
 
 	if err := r.reconcileStatus(ctx, ec2NodeClass, openshiftEC2NodeClass, hcp); err != nil {
@@ -200,7 +205,7 @@ func (r *EC2NodeClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	if err := r.reconcileKarpenterSubnetsConfigMap(ctx, hcp); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to reconcile karpenter subnets configmap: %w", err)
+		return ctrl.Result{}, fmt.Errorf("reconciling karpenter subnets configmap: %w", err)
 	}
 
 	if err := r.reconcileVAP(ctx); err != nil {
@@ -264,14 +269,14 @@ func reconcileEC2NodeClass(ctx context.Context, ec2NodeClass *awskarpenterv1.EC2
 	// When upgrade is in progress, and the nodeclass is tied to the control plane version, and the EC2NodeClass already has AMI/UserData set
 	// (i.e. not the first creation), preserve the existing drift-triggering fields that cause a node rollout upgrade.
 	if pauseUpgrade && openshiftEC2NodeClass.Spec.Version == "" && len(ec2NodeClass.Spec.AMISelectorTerms) > 0 && ec2NodeClass.Spec.UserData != nil {
-		ctrl.LoggerFrom(ctx).Info("Control plane upgrade in progress, preserving existing userData and amis")
+		ctrl.LoggerFrom(ctx).V(1).Info("Control plane upgrade in progress, preserving existing userData and amis")
 		userData = ec2NodeClass.Spec.UserData
 		amiSelectorTerms = ec2NodeClass.Spec.AMISelectorTerms
 	} else {
 		var err error
 		amiSelectorTerms, err = amiSelectorTermsFromUserDataSecret(userDataSecret)
 		if err != nil {
-			return fmt.Errorf("failed to get AMISelectorTerms: %w", err)
+			return fmt.Errorf("getting AMISelectorTerms: %w", err)
 		}
 	}
 
@@ -423,11 +428,11 @@ func (r *EC2NodeClassReconciler) reconcileStatus(ctx context.Context, ec2NodeCla
 
 	if !reflect.DeepEqual(originalObj.Status, openshiftNodeClass.Status) {
 		if err := r.hostedClient.Status().Patch(ctx, openshiftNodeClass, client.MergeFromWithOptions(originalObj, client.MergeFromWithOptimisticLock{})); err != nil {
-			return fmt.Errorf("failed to update status: %w", err)
+			return fmt.Errorf("updating status: %w", err)
 		}
+		log.V(1).Info("Updated OpenshiftEC2NodeClass status")
 	}
 
-	log.Info("Reconciled OpenshiftEC2NodeClass status")
 	return nil
 }
 
@@ -460,7 +465,7 @@ func (r *EC2NodeClassReconciler) reconcileKarpenterSubnetsConfigMap(ctx context.
 	// List all OpenshiftEC2NodeClass resources in guest cluster
 	openshiftEC2NodeClassList := &openshiftkarpenterv1.OpenshiftEC2NodeClassList{}
 	if err := r.hostedClient.List(ctx, openshiftEC2NodeClassList); err != nil {
-		return fmt.Errorf("failed to list OpenshiftEC2NodeClass: %w", err)
+		return fmt.Errorf("listing OpenshiftEC2NodeClass: %w", err)
 	}
 
 	subnetIDSet := sets.NewString()
@@ -490,16 +495,19 @@ func (r *EC2NodeClassReconciler) reconcileKarpenterSubnetsConfigMap(ctx context.
 	// delete the ConfigMap (no NodeClasses exist, or none have subnets in status yet).
 	// The ConfigMap is also cleaned up automatically via owner reference when HCP is deleted.
 	if subnetIDSet.Len() == 0 {
-		if _, err := deleteIfNeeded(ctx, r.managementClient, configMap); err != nil {
-			return fmt.Errorf("failed to delete karpenter subnets configmap: %w", err)
+		exists, err := deleteIfNeeded(ctx, r.managementClient, configMap)
+		if err != nil {
+			return fmt.Errorf("deleting karpenter subnets configmap: %w", err)
 		}
-		log.Info("Deleted karpenter subnets configmap (no OpenshiftEC2NodeClass resources with resolved subnets)")
+		if exists {
+			log.Info("Deleted karpenter subnets configmap, no OpenshiftEC2NodeClass resources with resolved subnets exist", "configmap", client.ObjectKeyFromObject(configMap))
+		}
 		return nil
 	}
 
 	// Create or update ConfigMap in management cluster
 
-	_, err := controllerutil.CreateOrUpdate(ctx, r.managementClient, configMap, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.managementClient, configMap, func() error {
 		// Set owner reference to HostedControlPlane for automatic cleanup
 		if err := controllerutil.SetControllerReference(hcp, configMap, r.managementClient.Scheme()); err != nil {
 			return err
@@ -518,17 +526,22 @@ func (r *EC2NodeClassReconciler) reconcileKarpenterSubnetsConfigMap(ctx context.
 		// Store as JSON array
 		subnetIDsJSON, err := json.Marshal(subnetIDs)
 		if err != nil {
-			return fmt.Errorf("failed to marshal subnet IDs: %w", err)
+			return fmt.Errorf("marshaling subnet IDs: %w", err)
 		}
 		configMap.Data["subnetIDs"] = string(subnetIDsJSON)
 
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to reconcile karpenter subnets configmap: %w", err)
+		return fmt.Errorf("reconciling karpenter subnets configmap: %w", err)
 	}
 
-	log.Info("Reconciled karpenter subnets configmap", "subnetCount", len(subnetIDs))
+	switch op {
+	case controllerutil.OperationResultCreated:
+		log.Info("Created karpenter subnets configmap", "configmap", client.ObjectKeyFromObject(configMap), "subnet count", len(subnetIDs))
+	case controllerutil.OperationResultUpdated:
+		log.Info("Updated karpenter subnets configmap", "configmap", client.ObjectKeyFromObject(configMap), "subnet count", len(subnetIDs))
+	}
 	return nil
 }
 
@@ -658,7 +671,7 @@ func (r *EC2NodeClassReconciler) mapVAPBindingToOpenShiftEC2NodeClasses(ctx cont
 func (r *EC2NodeClassReconciler) mapToOpenShiftEC2NodeClasses(ctx context.Context, obj client.Object) []reconcile.Request {
 	openshiftEC2NodeClassList := &openshiftkarpenterv1.OpenshiftEC2NodeClassList{}
 	if err := r.hostedClient.List(ctx, openshiftEC2NodeClassList); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "failed to list OpenShiftEC2NodeClass")
+		ctrl.LoggerFrom(ctx).Error(err, "Could not list OpenShiftEC2NodeClass")
 		return []reconcile.Request{}
 	}
 
@@ -708,7 +721,7 @@ func mergeEC2NodeClassTags(ctx context.Context, openshiftEC2NodeClass *openshift
 	filteredTags, removedTags := filterRestrictedTags(tags)
 
 	if len(removedTags) > 0 {
-		log.V(4).Info("Filtered restricted Karpenter tags", "removedCount", len(removedTags))
+		log.V(1).Info("Filtered restricted Karpenter tags", "removed count", len(removedTags))
 	}
 
 	// If we were nil coming in, we should be nil going out, test case comparisons care, {} is

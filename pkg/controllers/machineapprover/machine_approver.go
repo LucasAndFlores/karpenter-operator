@@ -74,7 +74,7 @@ func (r *MachineApproverController) SetupWithManager(mgr ctrl.Manager) error {
 
 	c, err := controller.New(r.Name(), mgr, controller.Options{Reconciler: r})
 	if err != nil {
-		return fmt.Errorf("failed to construct %s controller: %w", r.Name(), err)
+		return fmt.Errorf("constructing %s controller: %w", r.Name(), err)
 	}
 
 	if err := c.Watch(source.Kind(
@@ -83,7 +83,7 @@ func (r *MachineApproverController) SetupWithManager(mgr ctrl.Manager) error {
 		&handler.TypedEnqueueRequestForObject[*certificatesv1.CertificateSigningRequest]{},
 		predicate.NewTypedPredicateFuncs(csrFilterFn),
 	)); err != nil {
-		return fmt.Errorf("failed to watch CertificateSigningRequest: %w", err)
+		return fmt.Errorf("watching CertificateSigningRequest: %w", err)
 	}
 
 	return nil
@@ -107,14 +107,13 @@ func csrFilterFn(csr *certificatesv1.CertificateSigningRequest) bool {
 
 func (r *MachineApproverController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling CSR", "req", req)
 
 	csr := &certificatesv1.CertificateSigningRequest{}
 	if err := r.client.Get(ctx, req.NamespacedName, csr); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to get csr %s: %w", req.NamespacedName, err)
+		return ctrl.Result{}, fmt.Errorf("getting csr: %w", err)
 	}
 
 	// Return early if deleted
@@ -126,7 +125,7 @@ func (r *MachineApproverController) Reconcile(ctx context.Context, req ctrl.Requ
 	// but before we reconcile it, trying to approve it will result in an error and cause a loop.
 	// Return early if the CSR has been approved/denied externally.
 	if !isCertificateRequestPending(csr) {
-		log.Info("CSR is already processed", "csr", csr.Name)
+		log.V(1).Info("CSR is already processed", "csr", csr.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -136,10 +135,10 @@ func (r *MachineApproverController) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if authorized {
-		log.Info("Attempting to approve CSR", "csr", csr.Name)
 		if err := r.approve(ctx, csr); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to approve csr %s: %w", csr.Name, err)
+			return ctrl.Result{}, fmt.Errorf("approving csr: %w", err)
 		}
+		log.Info("Approved CSR", "csr", csr.Name)
 	}
 
 	return ctrl.Result{}, nil
@@ -235,7 +234,7 @@ func listNodeClaims(ctx context.Context, client client.Client) ([]karpenterv1.No
 	nodeClaimList := &karpenterv1.NodeClaimList{}
 	err := client.List(ctx, nodeClaimList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list NodeClaims: %w", err)
+		return nil, fmt.Errorf("listing NodeClaims: %w", err)
 	}
 
 	return nodeClaimList.Items, nil

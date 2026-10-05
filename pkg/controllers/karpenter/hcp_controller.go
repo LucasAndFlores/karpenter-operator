@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -69,7 +68,7 @@ func (c *HCPController) Name() string {
 }
 
 func (c *HCPController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.FromContext(ctx).Info("reconciling karpenter deployment on management cluster")
+	log := ctrl.LoggerFrom(ctx)
 
 	hcp := &hyperv1beta1.HostedControlPlane{}
 	if err := c.client.Get(ctx, req.NamespacedName, hcp); err != nil {
@@ -80,7 +79,7 @@ func (c *HCPController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// In the future, we need to allow scale to zero based on the HCP AutoNode spec.
 	// https://redhat.atlassian.net/browse/AUTOSCALE-520
 	if hcp.Spec.AutoNode.Provisioner.Name != hyperv1beta1.ProvisionerKarpenter {
-		log.FromContext(ctx).Info("HCP does not use Karpenter provisioner, skipping")
+		log.V(1).Info("HCP does not use Karpenter provisioner, skipping")
 		return ctrl.Result{}, nil
 	}
 
@@ -88,14 +87,14 @@ func (c *HCPController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// This ensures the karpenter deployment will have the correct version annotation
 	// for MonitorOperandsRolloutStatus tracking.
 	if hcp.Status.ControlPlaneVersion.Desired.Version == "" {
-		log.FromContext(ctx).Info("waiting for HCP control plane version to be set, requeuing in 5s")
+		log.V(1).Info("Waiting for HCP control plane version to be set, requeuing in 5s")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	ref := hcpOwnerRef(hcp)
 
 	if err := applyServiceAccount(ctx, c.client, c.config.Namespace, ref); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to reconcile ServiceAccount: %w", err)
+		return ctrl.Result{}, fmt.Errorf("reconciling ServiceAccount: %w", err)
 	}
 
 	cfg := &operandConfig{
@@ -136,7 +135,7 @@ func (c *HCPController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		additionalInitContainers: []corev1.Container{tokenMinterContainer(c.config.TokenMinterImage)},
 	}
 	if err := applyDeployment(ctx, c.client, cfg, ref); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to reconcile Deployment: %w", err)
+		return ctrl.Result{}, fmt.Errorf("reconciling Deployment: %w", err)
 	}
 	if err := applyPodMonitor(ctx, c.client, cfg, ref); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile PodMonitor: %w", err)

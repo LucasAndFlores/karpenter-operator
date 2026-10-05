@@ -14,7 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -58,11 +57,9 @@ func (c *Controller) Name() string {
 }
 
 func (c *Controller) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	log.FromContext(ctx).Info("reconciling karpenter CRDs")
-
 	for _, desired := range c.config.CRDs {
 		if err := c.applyCRD(ctx, desired); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to apply CRD %s: %w", desired.Name, err)
+			return ctrl.Result{}, fmt.Errorf("applying CRD %s: %w", desired.Name, err)
 		}
 	}
 
@@ -79,8 +76,10 @@ func (c *Controller) applyCRD(ctx context.Context, desired *apiextensionsv1.Cust
 	if err != nil {
 		return err
 	}
+	// Updates are not logged: the API server defaults fields the embedded CRDs leave unset,
+	// so CreateOrUpdate reports an update on every reconcile.
 	if op == controllerutil.OperationResultCreated {
-		log.FromContext(ctx).Info("created CRD", "name", desired.Name)
+		ctrl.LoggerFrom(ctx).Info("Created CRD", "crd", desired.Name)
 	}
 	return nil
 }
@@ -88,7 +87,7 @@ func (c *Controller) applyCRD(ctx context.Context, desired *apiextensionsv1.Cust
 func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	ctrlr, err := controller.New(c.Name(), mgr, controller.Options{Reconciler: c})
 	if err != nil {
-		return fmt.Errorf("failed to create controller: %w", err)
+		return fmt.Errorf("creating controller: %w", err)
 	}
 
 	managedCRDs := lo.KeyBy(c.config.CRDs, func(crd *apiextensionsv1.CustomResourceDefinition) string {
@@ -105,7 +104,7 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 		}),
 		predicate.TypedGenerationChangedPredicate[*apiextensionsv1.CustomResourceDefinition]{},
 	)); err != nil {
-		return fmt.Errorf("failed to watch CRDs: %w", err)
+		return fmt.Errorf("watching CRDs: %w", err)
 	}
 
 	// Trigger initial reconcile at startup to create CRDs before any watches fire.
@@ -113,7 +112,7 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 		q.Add(reconcile.Request{})
 		return nil
 	})); err != nil {
-		return fmt.Errorf("failed to watch initial sync: %w", err)
+		return fmt.Errorf("watching initial sync: %w", err)
 	}
 
 	return nil
