@@ -11,7 +11,7 @@ import (
 	"github.com/openshift/karpenter-operator/pkg/controllers"
 
 	configv1 "github.com/openshift/api/config/v1"
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +43,7 @@ func init() {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(autoscalingv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(openshiftkarpenterv1.AddToScheme(scheme))
-	utilruntime.Must(hyperv1.AddToScheme(scheme))
+	utilruntime.Must(hyperv1beta1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1.AddToScheme(scheme))
 
 	karpenterGV := schema.GroupVersion{Group: karpenterapis.Group, Version: "v1"}

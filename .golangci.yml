@@ -10,6 +10,7 @@ linters:
     - errorlint
     - gocyclo
     - gosec
+    - importas
     - misspell
     - nilerr
     - revive
@@ -26,6 +27,27 @@ linters:
       disable:
         - fieldalignment
       enable-all: true
+    importas:
+      no-unaliased: true
+      alias:
+        - pkg: sigs.k8s.io/karpenter/pkg/apis
+          alias: karpenterapis
+        - pkg: sigs.k8s.io/karpenter/pkg/apis/v1
+          alias: karpenterv1
+        - pkg: github.com/aws/karpenter-provider-aws/pkg/apis
+          alias: awskarpenterapis
+        - pkg: github.com/aws/karpenter-provider-aws/pkg/apis/v1
+          alias: awskarpenterv1
+        - pkg: github.com/Azure/karpenter-provider-azure/pkg/apis
+          alias: azurekarpenterapis
+        - pkg: github.com/Azure/karpenter-provider-azure/pkg/apis/v1beta1
+          alias: azurekarpenterv1beta1
+        - pkg: github.com/openshift/hypershift/api/hypershift/v1beta1
+          alias: hyperv1beta1
+        - pkg: github.com/openshift/karpenter-operator/api/karpenter/v1
+          alias: openshiftkarpenterv1
+        - pkg: github.com/openshift/karpenter-operator/api/karpenter/v1alpha1
+          alias: openshiftkarpenterv1alpha1
     misspell:
       locale: US
     revive:

@@ -9,7 +9,7 @@ import (
 
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
 
@@ -173,8 +173,8 @@ func TestAMISelectorTermsFromUserDataSecret(t *testing.T) {
 					Name:      "user-data-secret",
 					Namespace: "test-namespace",
 					Labels: map[string]string{
-						archToAMILabelKey(hyperv1.ArchitectureAMD64): "ami-123",
-						archToAMILabelKey(hyperv1.ArchitectureARM64): "ami-456",
+						archToAMILabelKey(hyperv1beta1.ArchitectureAMD64): "ami-123",
+						archToAMILabelKey(hyperv1beta1.ArchitectureARM64): "ami-456",
 					},
 				},
 			},

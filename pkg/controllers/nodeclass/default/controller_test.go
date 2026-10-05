@@ -8,7 +8,7 @@ import (
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 	testfake "github.com/openshift/karpenter-operator/test/pkg/fake"
 
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,11 +57,11 @@ func TestReconcileDefaultNodeClass(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
-			provisioner := hyperv1.ProvisionerKarpenter
+			provisioner := hyperv1beta1.ProvisionerKarpenter
 			if tc.nonKarpenter {
 				provisioner = ""
 			}
-			hcp := &hyperv1.HostedControlPlane{
+			hcp := &hyperv1beta1.HostedControlPlane{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testHCPName,
 					Namespace: testNamespace,
@@ -69,9 +69,9 @@ func TestReconcileDefaultNodeClass(t *testing.T) {
 						openshiftkarpenterv1.KarpenterCoreE2EOverrideAnnotation: tc.annotation,
 					},
 				},
-				Spec: hyperv1.HostedControlPlaneSpec{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID:  tc.infraID,
-					AutoNode: hyperv1.AutoNode{Provisioner: hyperv1.ProvisionerConfig{Name: provisioner}},
+					AutoNode: hyperv1beta1.AutoNode{Provisioner: hyperv1beta1.ProvisionerConfig{Name: provisioner}},
 				},
 			}
 
@@ -104,11 +104,11 @@ func TestReconcileDefaultNodeClass(t *testing.T) {
 
 func TestReconcileOperatorOwnedSelectors(t *testing.T) {
 	g := NewWithT(t)
-	hcp := &hyperv1.HostedControlPlane{
+	hcp := &hyperv1beta1.HostedControlPlane{
 		ObjectMeta: metav1.ObjectMeta{Name: testHCPName, Namespace: testNamespace},
-		Spec: hyperv1.HostedControlPlaneSpec{
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
 			InfraID:  testInfraID,
-			AutoNode: hyperv1.AutoNode{Provisioner: hyperv1.ProvisionerConfig{Name: hyperv1.ProvisionerKarpenter}},
+			AutoNode: hyperv1beta1.AutoNode{Provisioner: hyperv1beta1.ProvisionerConfig{Name: hyperv1beta1.ProvisionerKarpenter}},
 		},
 	}
 	hostedClient, controller := newControllerWithHCPs(t, nil, testDefaultNodeClassProvider{}, hcp)
@@ -130,23 +130,23 @@ func TestReconcileOperatorOwnedSelectors(t *testing.T) {
 
 func TestReconcileHCPCardinality(t *testing.T) {
 	tests := map[string]struct {
-		hcps       []*hyperv1.HostedControlPlane
+		hcps       []*hyperv1beta1.HostedControlPlane
 		wantError  bool
 		wantObject bool
 	}{
 		"When no HCP exists, it should stop reconciliation": {},
 		"When one HCP exists, it should reconcile the default NodeClass": {
-			hcps: []*hyperv1.HostedControlPlane{{
+			hcps: []*hyperv1beta1.HostedControlPlane{{
 				ObjectMeta: metav1.ObjectMeta{Name: testHCPName, Namespace: testNamespace},
-				Spec: hyperv1.HostedControlPlaneSpec{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID:  testInfraID,
-					AutoNode: hyperv1.AutoNode{Provisioner: hyperv1.ProvisionerConfig{Name: hyperv1.ProvisionerKarpenter}},
+					AutoNode: hyperv1beta1.AutoNode{Provisioner: hyperv1beta1.ProvisionerConfig{Name: hyperv1beta1.ProvisionerKarpenter}},
 				},
 			}},
 			wantObject: true,
 		},
 		"When multiple HCPs exist, it should return an error": {
-			hcps: []*hyperv1.HostedControlPlane{
+			hcps: []*hyperv1beta1.HostedControlPlane{
 				{ObjectMeta: metav1.ObjectMeta{Name: "first", Namespace: testNamespace}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "second", Namespace: testNamespace}},
 			},
@@ -174,29 +174,29 @@ func TestReconcileHCPCardinality(t *testing.T) {
 
 func TestHCPPredicate(t *testing.T) {
 	tests := map[string]struct {
-		mutate func(*hyperv1.HostedControlPlane)
+		mutate func(*hyperv1beta1.HostedControlPlane)
 		want   bool
 	}{
 		"When InfraID changes, it should enqueue reconciliation": {
-			mutate: func(hcp *hyperv1.HostedControlPlane) {
+			mutate: func(hcp *hyperv1beta1.HostedControlPlane) {
 				hcp.Spec.InfraID = "changed-infra-id"
 			},
 			want: true,
 		},
 		"When provisioner changes, it should enqueue reconciliation": {
-			mutate: func(hcp *hyperv1.HostedControlPlane) {
+			mutate: func(hcp *hyperv1beta1.HostedControlPlane) {
 				hcp.Spec.AutoNode.Provisioner.Name = ""
 			},
 			want: true,
 		},
 		"When override annotation changes, it should enqueue reconciliation": {
-			mutate: func(hcp *hyperv1.HostedControlPlane) {
+			mutate: func(hcp *hyperv1beta1.HostedControlPlane) {
 				hcp.Annotations[openshiftkarpenterv1.KarpenterCoreE2EOverrideAnnotation] = "true"
 			},
 			want: true,
 		},
 		"When an unrelated label changes, it should not enqueue reconciliation": {
-			mutate: func(hcp *hyperv1.HostedControlPlane) {
+			mutate: func(hcp *hyperv1beta1.HostedControlPlane) {
 				hcp.Labels = map[string]string{"unrelated": "changed"}
 			},
 			want: false,
@@ -205,16 +205,16 @@ func TestHCPPredicate(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			oldHCP := &hyperv1.HostedControlPlane{
+			oldHCP := &hyperv1beta1.HostedControlPlane{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						openshiftkarpenterv1.KarpenterCoreE2EOverrideAnnotation: "false",
 					},
 				},
-				Spec: hyperv1.HostedControlPlaneSpec{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: testInfraID,
-					AutoNode: hyperv1.AutoNode{
-						Provisioner: hyperv1.ProvisionerConfig{Name: hyperv1.ProvisionerKarpenter},
+					AutoNode: hyperv1beta1.AutoNode{
+						Provisioner: hyperv1beta1.ProvisionerConfig{Name: hyperv1beta1.ProvisionerKarpenter},
 					},
 				},
 			}
@@ -293,11 +293,11 @@ func defaultNodeClassObject() *openshiftkarpenterv1.OpenshiftEC2NodeClass {
 	return &openshiftkarpenterv1.OpenshiftEC2NodeClass{ObjectMeta: metav1.ObjectMeta{Name: defaultNodeClassName}}
 }
 
-func newControllerWithHCPs(t *testing.T, hostedObject client.Object, provider NodeClassProvider, hcps ...*hyperv1.HostedControlPlane) (client.Client, *Controller) {
+func newControllerWithHCPs(t *testing.T, hostedObject client.Object, provider NodeClassProvider, hcps ...*hyperv1beta1.HostedControlPlane) (client.Client, *Controller) {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	g := NewWithT(t)
-	g.Expect(hyperv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(hyperv1beta1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(openshiftkarpenterv1.AddToScheme(scheme)).To(Succeed())
 
 	managementObjects := make([]client.Object, 0, len(hcps))

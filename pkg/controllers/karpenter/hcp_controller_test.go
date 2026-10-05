@@ -10,7 +10,7 @@ import (
 	testfake "github.com/openshift/karpenter-operator/test/pkg/fake"
 
 	configv1 "github.com/openshift/api/config/v1"
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -71,24 +71,24 @@ func hcpReconcileRequest() ctrl.Request {
 	}}
 }
 
-func hcpWithProvisioner(name hyperv1.Provisioner) *hyperv1.HostedControlPlane {
-	return &hyperv1.HostedControlPlane{
+func hcpWithProvisioner(name hyperv1beta1.Provisioner) *hyperv1beta1.HostedControlPlane {
+	return &hyperv1beta1.HostedControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hcpTestHCPName,
 			Namespace: hcpTestNamespace,
 			UID:       types.UID("hcp-uid-1234"),
 		},
-		Spec: hyperv1.HostedControlPlaneSpec{
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
 			ReleaseImage: "release-image",
 			InfraID:      hcpTestInfraID,
-			AutoNode: hyperv1.AutoNode{
-				Provisioner: hyperv1.ProvisionerConfig{
+			AutoNode: hyperv1beta1.AutoNode{
+				Provisioner: hyperv1beta1.ProvisionerConfig{
 					Name: name,
 				},
 			},
 		},
-		Status: hyperv1.HostedControlPlaneStatus{
-			ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+		Status: hyperv1beta1.HostedControlPlaneStatus{
+			ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 				Desired: configv1.Release{
 					Version: "4.18.0",
 				},
@@ -98,7 +98,7 @@ func hcpWithProvisioner(name hyperv1.Provisioner) *hyperv1.HostedControlPlane {
 }
 
 func TestHCPOperandReconcilePredicate(t *testing.T) {
-	hcp := hcpWithProvisioner(hyperv1.ProvisionerKarpenter)
+	hcp := hcpWithProvisioner(hyperv1beta1.ProvisionerKarpenter)
 	p := hcpOperandReconcilePredicate()
 
 	tests := []struct {
@@ -110,7 +110,7 @@ func TestHCPOperandReconcilePredicate(t *testing.T) {
 			name: "When only releaseImage changes it should not reconcile",
 			event: event.UpdateEvent{
 				ObjectOld: hcp,
-				ObjectNew: func() *hyperv1.HostedControlPlane {
+				ObjectNew: func() *hyperv1beta1.HostedControlPlane {
 					updated := hcp.DeepCopy()
 					updated.Spec.ReleaseImage = "new-release-image"
 					return updated
@@ -122,7 +122,7 @@ func TestHCPOperandReconcilePredicate(t *testing.T) {
 			name: "When infraID changes it should reconcile",
 			event: event.UpdateEvent{
 				ObjectOld: hcp,
-				ObjectNew: func() *hyperv1.HostedControlPlane {
+				ObjectNew: func() *hyperv1beta1.HostedControlPlane {
 					updated := hcp.DeepCopy()
 					updated.Spec.InfraID = "new-infra-id"
 					return updated
@@ -134,7 +134,7 @@ func TestHCPOperandReconcilePredicate(t *testing.T) {
 			name: "When autoNode changes it should reconcile",
 			event: event.UpdateEvent{
 				ObjectOld: hcp,
-				ObjectNew: func() *hyperv1.HostedControlPlane {
+				ObjectNew: func() *hyperv1beta1.HostedControlPlane {
 					updated := hcp.DeepCopy()
 					updated.Spec.AutoNode.Provisioner.Name = ""
 					return updated
@@ -146,7 +146,7 @@ func TestHCPOperandReconcilePredicate(t *testing.T) {
 			name: "When control plane version changes it should reconcile",
 			event: event.UpdateEvent{
 				ObjectOld: hcp,
-				ObjectNew: func() *hyperv1.HostedControlPlane {
+				ObjectNew: func() *hyperv1beta1.HostedControlPlane {
 					updated := hcp.DeepCopy()
 					updated.Status.ControlPlaneVersion.Desired.Version = "4.19.0"
 					return updated
@@ -195,13 +195,13 @@ func TestHCPReconcile(t *testing.T) {
 		},
 		{
 			name:            "When HostedControlPlane uses Karpenter it should create operand resources owned by the HCP",
-			objects:         []client.Object{hcpWithProvisioner(hyperv1.ProvisionerKarpenter)},
+			objects:         []client.Object{hcpWithProvisioner(hyperv1beta1.ProvisionerKarpenter)},
 			expectOperands:  true,
 			expectedInfraID: hcpTestInfraID,
 		},
 		{
 			name:            "When the karpenter Deployment is mutated it should restore the desired spec",
-			objects:         []client.Object{hcpWithProvisioner(hyperv1.ProvisionerKarpenter)},
+			objects:         []client.Object{hcpWithProvisioner(hyperv1beta1.ProvisionerKarpenter)},
 			expectOperands:  true,
 			expectedInfraID: hcpTestInfraID,
 			mutate: func(ctx context.Context, cl client.Client) error {
@@ -219,7 +219,7 @@ func TestHCPReconcile(t *testing.T) {
 		},
 		{
 			name:            "When the karpenter ServiceAccount is mutated it should restore the desired state",
-			objects:         []client.Object{hcpWithProvisioner(hyperv1.ProvisionerKarpenter)},
+			objects:         []client.Object{hcpWithProvisioner(hyperv1beta1.ProvisionerKarpenter)},
 			expectOperands:  true,
 			expectedInfraID: hcpTestInfraID,
 			mutate: func(ctx context.Context, cl client.Client) error {
@@ -234,7 +234,7 @@ func TestHCPReconcile(t *testing.T) {
 		},
 		{
 			name:            "When the karpenter Deployment is deleted it should recreate it",
-			objects:         []client.Object{hcpWithProvisioner(hyperv1.ProvisionerKarpenter)},
+			objects:         []client.Object{hcpWithProvisioner(hyperv1beta1.ProvisionerKarpenter)},
 			expectOperands:  true,
 			expectedInfraID: hcpTestInfraID,
 			mutate: func(ctx context.Context, cl client.Client) error {
@@ -248,11 +248,11 @@ func TestHCPReconcile(t *testing.T) {
 		},
 		{
 			name:            "When infraID changes it should update the kubeconfig secret reference",
-			objects:         []client.Object{hcpWithProvisioner(hyperv1.ProvisionerKarpenter)},
+			objects:         []client.Object{hcpWithProvisioner(hyperv1beta1.ProvisionerKarpenter)},
 			expectOperands:  true,
 			expectedInfraID: hcpTestUpdatedInfraID,
 			mutate: func(ctx context.Context, cl client.Client) error {
-				hcp := &hyperv1.HostedControlPlane{}
+				hcp := &hyperv1beta1.HostedControlPlane{}
 				if err := cl.Get(ctx, hcpReconcileRequest().NamespacedName, hcp); err != nil {
 					return err
 				}
@@ -263,7 +263,7 @@ func TestHCPReconcile(t *testing.T) {
 	}
 
 	s := runtime.NewScheme()
-	_ = hyperv1.AddToScheme(s)
+	_ = hyperv1beta1.AddToScheme(s)
 	_ = appsv1.AddToScheme(s)
 	_ = corev1.AddToScheme(s)
 	_ = monitoringv1.AddToScheme(s)
