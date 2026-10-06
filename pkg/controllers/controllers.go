@@ -126,7 +126,7 @@ func newMachineApproverController(cfg *Config) Controller {
 		return nil
 	}
 
-	return machineapprover.NewMachineApproverController(cfg.HostedCluster, verifier)
+	return machineapprover.NewController(cfg.HostedCluster, verifier)
 }
 
 func Setup(mgr ctrl.Manager, controllers ...Controller) error {
