@@ -121,16 +121,9 @@ Do not edit generated files directly:
 Commit generated changes with their source changes.
 The `api/` directory is a separate Go module; run Go dependency and formatting commands from that directory when changing its dependencies or source.
 
-## Code style
+## Code style and conventions
 
-- Run `make fmt` for root-module Go changes.
-- Run `make lint` or `make lint-fix`; `.golangci.yml` defines lint and import-order rules.
-- Use lowercase error strings without trailing punctuation, and wrap errors with context and `%w`.
-- Use structured logging with constant messages and key-value pairs.
-- Controllers utilize [Server Side Apply (SSA)][SSA] when applying and reconciling owned resources.
-- Match surrounding code and test style.
-
-[SSA]: https://kubernetes.io/blog/2022/10/20/advanced-server-side-apply/
+See [CONVENTIONS.md](./CONVENTIONS.md) for code style and conventions.
 
 ## AI code review
 

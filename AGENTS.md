@@ -11,14 +11,17 @@ Karpenter scheduling logic runs in the operand.
 
 ## Architecture
 
-Controller selection depends on deployment mode:
+Controller selection is centralized in [`pkg/controllers/controllers.go`](./pkg/controllers/controllers.go) and depends on deployment mode and cloud-provider capabilities:
 
-- `pkg/controllers/crd` installs Karpenter CRDs in both modes.
-- `pkg/controllers/karpenter` contains mode-specific operand reconcilers: `OCPController` for standalone clusters and `HCPController` for management clusters.
-- `pkg/controllers/clusteroperator` reports operator health in standalone mode.
+- `pkg/controllers/crd` installs Karpenter and provider CRDs in both modes, including hosted-control-plane NodeClass CRDs when supported and a hosted-cluster client is configured.
+- `pkg/controllers/karpenter` deploys the operand using `OCPController` in standalone mode and `HCPController` in management-cluster mode.
+- `pkg/controllers/clusteroperator` reports operator health in standalone mode only.
+- `pkg/controllers/nodeclass/default` reconciles a provider-supplied default NodeClass from `HostedControlPlane` configuration in management-cluster mode. It requires a hosted-cluster client and provider support for hosted-control-plane NodeClasses.
+- `pkg/controllers/nodeclass/ec2` is selected through the AWS NodeClass provider under those same conditions. It reconciles hosted-cluster `OpenshiftEC2NodeClass` resources into operand-facing `EC2NodeClass` resources and maintains the management-cluster subnets ConfigMap.
+- `pkg/controllers/machineapprover` approves CSRs for Karpenter-provisioned nodes in management-cluster mode, when a hosted-cluster client and a provider-supplied node identity verifier are available.
 
 In standalone mode, the operand controller reconciles the singleton `autoscaling.openshift.io/v1alpha1` `Karpenter` resource named `default`.
-In management-cluster mode, the CRD controller uses the hosted-cluster client configured by `--target-kubeconfig`, while the operand controller watches `HostedControlPlane` objects in the management cluster.
+In management-cluster mode, the operand controller watches `HostedControlPlane` objects and deploys the operand in the management cluster. `--target-kubeconfig` configures the secondary hosted-cluster client used for CRD installation, NodeClass reconciliation, and CSR approval; NodeClass controllers also read configuration from the management cluster.
 `ClusterOperator` status is not reported in management-cluster mode.
 
 Two API groups serve different purposes:
@@ -35,7 +38,7 @@ Cloud-specific behavior belongs behind `pkg/cloudprovider/common.CloudProvider`;
 cmd/                     Binary entry point
 api/                     Separate Go module for operand-facing APIs
 pkg/apis/autoscaling/    Operator lifecycle API
-pkg/controllers/         Controller wiring; CRD, OCP/HCP operand, and ClusterOperator controllers
+pkg/controllers/         Controller wiring; CRD, operand, health, NodeClass, and CSR controllers
 pkg/cloudprovider/       Cloud-provider interface and implementations
 pkg/assets/              Embedded CRDs and RBAC
 install/                 Operator installation manifests
@@ -62,6 +65,10 @@ Never edit these files directly:
 - `install/04_rbac.yaml` — `make manifest-diff-sync`
 
 `make verify` checks generated content and working-tree cleanliness.
+
+## Code style and conventions
+
+See [CONVENTIONS.md](./CONVENTIONS.md) for code style and conventions.
 
 ## Human review required
 
