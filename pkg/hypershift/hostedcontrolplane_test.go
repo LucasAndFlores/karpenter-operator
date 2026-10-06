@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,8 +17,8 @@ import (
 func TestGetHostedControlPlane(t *testing.T) {
 	const namespace = "clusters-example"
 
-	newHCP := func(name, namespace string) *hyperv1.HostedControlPlane {
-		return &hyperv1.HostedControlPlane{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	newHCP := func(name, namespace string) *hyperv1beta1.HostedControlPlane {
+		return &hyperv1beta1.HostedControlPlane{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 	}
 
 	tests := map[string]struct {
@@ -45,7 +45,7 @@ func TestGetHostedControlPlane(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
 			scheme := runtime.NewScheme()
-			g.Expect(hyperv1.AddToScheme(scheme)).To(Succeed())
+			g.Expect(hyperv1beta1.AddToScheme(scheme)).To(Succeed())
 			c := fakeclient.NewClientBuilder().WithScheme(scheme).WithObjects(tc.hcps...).Build()
 
 			hcp, err := GetHostedControlPlane(t.Context(), c, namespace)

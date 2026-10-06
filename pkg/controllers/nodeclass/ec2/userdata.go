@@ -7,7 +7,7 @@ import (
 
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
 
@@ -25,7 +25,7 @@ const tokenSecretAnnotation = "hypershift.openshift.io/ignition-config"
 var karpenterSecretSelector = labels.SelectorFromSet(labels.Set{openshiftkarpenterv1.ManagedByKarpenterLabel: "true"})
 
 // supportedArchitectures lists the architectures with AMIs for HCP AWS.
-var supportedArchitectures = []string{hyperv1.ArchitectureAMD64, hyperv1.ArchitectureARM64}
+var supportedArchitectures = []string{hyperv1beta1.ArchitectureAMD64, hyperv1beta1.ArchitectureARM64}
 
 var errKarpenterUserDataSecretNotFound = errors.New("failed to find user data secret for OpenshiftEC2NodeClass")
 
@@ -86,7 +86,7 @@ func amiSelectorTermsFromUserDataSecret(userDataSecret *corev1.Secret) ([]awskar
 
 // archToAMILabelKey returns the user data Secret label key that stores the AMI ID for the given architecture.
 func archToAMILabelKey(arch string) string {
-	if arch == hyperv1.ArchitectureAMD64 {
+	if arch == hyperv1beta1.ArchitectureAMD64 {
 		return openshiftkarpenterv1.UserDataAMILabel
 	}
 	return fmt.Sprintf("%s-%s", openshiftkarpenterv1.UserDataAMILabel, arch)

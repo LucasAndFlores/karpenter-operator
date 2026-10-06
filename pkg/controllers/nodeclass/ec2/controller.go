@@ -13,7 +13,7 @@ import (
 	"github.com/openshift/karpenter-operator/pkg/hypershift"
 
 	configv1 "github.com/openshift/api/config/v1"
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	awskarpenterapis "github.com/aws/karpenter-provider-aws/pkg/apis"
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
@@ -102,7 +102,7 @@ func (r *EC2NodeClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.mapToOpenShiftEC2NodeClasses),
 			builder.WithPredicates(r.karpenterSecretPredicate())).
 		// Watch HostedControlPlane for instance profile and resource tag changes
-		Watches(&hyperv1.HostedControlPlane{},
+		Watches(&hyperv1beta1.HostedControlPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.mapToOpenShiftEC2NodeClasses),
 			builder.WithPredicates(r.hcpPredicate())).
 		Complete(r)
@@ -239,7 +239,7 @@ func deleteIfNeeded(ctx context.Context, c client.Client, o client.Object) (exis
 // Returns false during initial install (no Completed entry or desired not yet populated).
 // The loop returns on the first CompletedUpdate entry found. This is safe because the
 // ControlPlaneVersion.History list is ordered newest-first per the API contract.
-func isControlPlaneUpgrading(hcp *hyperv1.HostedControlPlane) bool {
+func isControlPlaneUpgrading(hcp *hyperv1beta1.HostedControlPlane) bool {
 	desiredImage := hcp.Status.ControlPlaneVersion.Desired.Image
 	if desiredImage == "" {
 		return false
@@ -254,7 +254,7 @@ func isControlPlaneUpgrading(hcp *hyperv1.HostedControlPlane) bool {
 	return false
 }
 
-func reconcileEC2NodeClass(ctx context.Context, ec2NodeClass *awskarpenterv1.EC2NodeClass, openshiftEC2NodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1.HostedControlPlane, userDataSecret *corev1.Secret) error { //nolint:gocyclo
+func reconcileEC2NodeClass(ctx context.Context, ec2NodeClass *awskarpenterv1.EC2NodeClass, openshiftEC2NodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1beta1.HostedControlPlane, userDataSecret *corev1.Secret) error { //nolint:gocyclo
 	pauseUpgrade := isControlPlaneUpgrading(hcp)
 
 	var amiSelectorTerms []awskarpenterv1.AMISelectorTerm
@@ -290,7 +290,7 @@ func reconcileEC2NodeClass(ctx context.Context, ec2NodeClass *awskarpenterv1.EC2
 	}
 
 	// Set instance profile from HostedCluster annotation (platform-controlled)
-	if instanceProfile, ok := hcp.Annotations[hyperv1.AWSKarpenterDefaultInstanceProfile]; ok && instanceProfile != "" {
+	if instanceProfile, ok := hcp.Annotations[hyperv1beta1.AWSKarpenterDefaultInstanceProfile]; ok && instanceProfile != "" {
 		ec2NodeClass.Spec.InstanceProfile = new(instanceProfile)
 	}
 
@@ -361,7 +361,7 @@ func DefaultSecurityGroupSelectorTags(infraID string) map[string]string {
 	}
 }
 
-func (r *EC2NodeClassReconciler) reconcileStatus(ctx context.Context, ec2NodeClass *awskarpenterv1.EC2NodeClass, openshiftNodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1.HostedControlPlane) error {
+func (r *EC2NodeClassReconciler) reconcileStatus(ctx context.Context, ec2NodeClass *awskarpenterv1.EC2NodeClass, openshiftNodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1beta1.HostedControlPlane) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	originalObj := openshiftNodeClass.DeepCopy()
@@ -454,7 +454,7 @@ func (r *EC2NodeClassReconciler) computeReadyCondition(openshiftNodeClass *opens
 	}
 }
 
-func (r *EC2NodeClassReconciler) reconcileKarpenterSubnetsConfigMap(ctx context.Context, hcp *hyperv1.HostedControlPlane) error { //nolint:gocyclo
+func (r *EC2NodeClassReconciler) reconcileKarpenterSubnetsConfigMap(ctx context.Context, hcp *hyperv1beta1.HostedControlPlane) error { //nolint:gocyclo
 	log := ctrl.LoggerFrom(ctx)
 
 	// List all OpenshiftEC2NodeClass resources in guest cluster
@@ -605,9 +605,9 @@ func (r *EC2NodeClassReconciler) karpenterSecretPredicate() predicate.Predicate 
 // hcpPredicate filters HostedControlPlane events to changes that affect EC2NodeClasses.
 func (r *EC2NodeClassReconciler) hcpPredicate() predicate.Predicate {
 	filterHCP := func(obj client.Object) bool {
-		if hcp, ok := obj.(*hyperv1.HostedControlPlane); ok {
+		if hcp, ok := obj.(*hyperv1beta1.HostedControlPlane); ok {
 			// Trigger if the annotation exists
-			if _, exists := hcp.Annotations[hyperv1.AWSKarpenterDefaultInstanceProfile]; exists {
+			if _, exists := hcp.Annotations[hyperv1beta1.AWSKarpenterDefaultInstanceProfile]; exists {
 				return true
 			}
 		}
@@ -619,11 +619,11 @@ func (r *EC2NodeClassReconciler) hcpPredicate() predicate.Predicate {
 			return filterHCP(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldHCP, oldOK := e.ObjectOld.(*hyperv1.HostedControlPlane)
-			newHCP, newOK := e.ObjectNew.(*hyperv1.HostedControlPlane)
+			oldHCP, oldOK := e.ObjectOld.(*hyperv1beta1.HostedControlPlane)
+			newHCP, newOK := e.ObjectNew.(*hyperv1beta1.HostedControlPlane)
 			if oldOK && newOK {
-				oldVal := oldHCP.Annotations[hyperv1.AWSKarpenterDefaultInstanceProfile]
-				newVal := newHCP.Annotations[hyperv1.AWSKarpenterDefaultInstanceProfile]
+				oldVal := oldHCP.Annotations[hyperv1beta1.AWSKarpenterDefaultInstanceProfile]
+				newVal := newHCP.Annotations[hyperv1beta1.AWSKarpenterDefaultInstanceProfile]
 				return oldVal != newVal || !equality.Semantic.DeepEqual(awsResourceTags(oldHCP), awsResourceTags(newHCP))
 			}
 			return false
@@ -633,7 +633,7 @@ func (r *EC2NodeClassReconciler) hcpPredicate() predicate.Predicate {
 	}
 }
 
-func awsResourceTags(hcp *hyperv1.HostedControlPlane) []hyperv1.AWSClusterResourceTag {
+func awsResourceTags(hcp *hyperv1beta1.HostedControlPlane) []hyperv1beta1.AWSClusterResourceTag {
 	if hcp.Spec.Platform.AWS == nil {
 		return nil
 	}
@@ -681,7 +681,7 @@ func (r *EC2NodeClassReconciler) mapToOpenShiftEC2NodeClasses(ctx context.Contex
 // Tags matching Karpenter's restricted patterns are filtered out to prevent validation errors.
 // Karpenter restricts the patterns because it manages those tags itself, so the result is not "the karpenter-managed tags won't be present",
 // the result is "the tags will still be present and managed by Karpenter"
-func mergeEC2NodeClassTags(ctx context.Context, openshiftEC2NodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1.HostedControlPlane) map[string]string {
+func mergeEC2NodeClassTags(ctx context.Context, openshiftEC2NodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1beta1.HostedControlPlane) map[string]string {
 	log := ctrl.LoggerFrom(ctx)
 	tags := make(map[string]string)
 
@@ -690,7 +690,7 @@ func mergeEC2NodeClassTags(ctx context.Context, openshiftEC2NodeClass *openshift
 	if hcp.Spec.Platform.AWS != nil {
 		for _, tag := range hcp.Spec.Platform.AWS.ResourceTags {
 			tags[tag.Key] = tag.Value
-			if tag.OverridePolicy == hyperv1.AWSResourceTagOverridePolicyAllow {
+			if tag.OverridePolicy == hyperv1beta1.AWSResourceTagOverridePolicyAllow {
 				allowOverride[tag.Key] = true
 			}
 		}
@@ -720,16 +720,16 @@ func mergeEC2NodeClassTags(ctx context.Context, openshiftEC2NodeClass *openshift
 	return filteredTags
 }
 
-func setAWSResourceTagConflictCondition(openshiftNodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1.HostedControlPlane) { //nolint:gocyclo
+func setAWSResourceTagConflictCondition(openshiftNodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass, hcp *hyperv1beta1.HostedControlPlane) { //nolint:gocyclo
 	if hcp.Spec.Platform.AWS == nil || len(hcp.Spec.Platform.AWS.ResourceTags) == 0 || len(openshiftNodeClass.Spec.Tags) == 0 {
-		meta.RemoveStatusCondition(&openshiftNodeClass.Status.Conditions, hyperv1.NodePoolAWSResourceTagConflictConditionType)
+		meta.RemoveStatusCondition(&openshiftNodeClass.Status.Conditions, hyperv1beta1.NodePoolAWSResourceTagConflictConditionType)
 		return
 	}
 
 	var blocked, overridden int
 	for k, ncVal := range openshiftNodeClass.Spec.Tags {
 		var found bool
-		var hcTag hyperv1.AWSClusterResourceTag
+		var hcTag hyperv1beta1.AWSClusterResourceTag
 		for _, t := range hcp.Spec.Platform.AWS.ResourceTags {
 			if t.Key == k {
 				found = true
@@ -740,7 +740,7 @@ func setAWSResourceTagConflictCondition(openshiftNodeClass *openshiftkarpenterv1
 		if !found || hcTag.Value == ncVal {
 			continue
 		}
-		if hcTag.OverridePolicy == hyperv1.AWSResourceTagOverridePolicyAllow {
+		if hcTag.OverridePolicy == hyperv1beta1.AWSResourceTagOverridePolicyAllow {
 			overridden++
 		} else {
 			blocked++
@@ -753,9 +753,9 @@ func setAWSResourceTagConflictCondition(openshiftNodeClass *openshiftkarpenterv1
 			msg = fmt.Sprintf("%d AWS resource tag override(s) applied; nodeclass values used (allowed by HostedCluster)", overridden)
 		}
 		meta.SetStatusCondition(&openshiftNodeClass.Status.Conditions, metav1.Condition{
-			Type:               hyperv1.NodePoolAWSResourceTagConflictConditionType,
+			Type:               hyperv1beta1.NodePoolAWSResourceTagConflictConditionType,
 			Status:             metav1.ConditionFalse,
-			Reason:             hyperv1.AWSResourceTagNoConflictReason,
+			Reason:             hyperv1beta1.AWSResourceTagNoConflictReason,
 			Message:            msg,
 			ObservedGeneration: openshiftNodeClass.Generation,
 		})
@@ -767,9 +767,9 @@ func setAWSResourceTagConflictCondition(openshiftNodeClass *openshiftkarpenterv1
 		msg += fmt.Sprintf("; %d override(s) applied (allowed by HostedCluster)", overridden)
 	}
 	meta.SetStatusCondition(&openshiftNodeClass.Status.Conditions, metav1.Condition{
-		Type:               hyperv1.NodePoolAWSResourceTagConflictConditionType,
+		Type:               hyperv1beta1.NodePoolAWSResourceTagConflictConditionType,
 		Status:             metav1.ConditionTrue,
-		Reason:             hyperv1.AWSResourceTagConflictDetectedReason,
+		Reason:             hyperv1beta1.AWSResourceTagConflictDetectedReason,
 		Message:            msg,
 		ObservedGeneration: openshiftNodeClass.Generation,
 	})

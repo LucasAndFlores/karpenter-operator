@@ -12,7 +12,7 @@ import (
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 
 	configv1 "github.com/openshift/api/config/v1"
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	awskarpenterv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
 
@@ -44,18 +44,18 @@ func TestReconcile(t *testing.T) {
 		userData      = `{"ignition":{"version":"3.2.0"}}`
 	)
 
-	newHCP := func(annotations map[string]string) *hyperv1.HostedControlPlane {
-		return &hyperv1.HostedControlPlane{
+	newHCP := func(annotations map[string]string) *hyperv1beta1.HostedControlPlane {
+		return &hyperv1beta1.HostedControlPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "example",
 				Namespace:   hcpNamespace,
 				UID:         "4c8f0a4e-4f8e-4a57-9c1f-3b8ad2f2c8a1",
 				Annotations: annotations,
 			},
-			Spec: hyperv1.HostedControlPlaneSpec{
+			Spec: hyperv1beta1.HostedControlPlaneSpec{
 				InfraID: "example-4x7kq",
-				Platform: hyperv1.PlatformSpec{
-					Type: hyperv1.AWSPlatform,
+				Platform: hyperv1beta1.PlatformSpec{
+					Type: hyperv1beta1.AWSPlatform,
 				},
 			},
 		}
@@ -65,9 +65,9 @@ func TestReconcile(t *testing.T) {
 			Name:      "user-data-default-karpenter-a1b2c3d4",
 			Namespace: hcpNamespace,
 			Labels: map[string]string{
-				openshiftkarpenterv1.ManagedByKarpenterLabel: "true",
-				archToAMILabelKey(hyperv1.ArchitectureAMD64): amd64AMI,
-				archToAMILabelKey(hyperv1.ArchitectureARM64): arm64AMI,
+				openshiftkarpenterv1.ManagedByKarpenterLabel:      "true",
+				archToAMILabelKey(hyperv1beta1.ArchitectureAMD64): amd64AMI,
+				archToAMILabelKey(hyperv1beta1.ArchitectureARM64): arm64AMI,
 			},
 			Annotations: map[string]string{
 				openshiftkarpenterv1.TokenSecretNodePoolAnnotation: "clusters/default-karpenter",
@@ -230,18 +230,18 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 	}
 
 	// Default HCP for test cases that don't specify their own
-	hcp := &hyperv1.HostedControlPlane{
-		Spec: hyperv1.HostedControlPlaneSpec{
+	hcp := &hyperv1beta1.HostedControlPlane{
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
 			InfraID: "test-infra",
-			Platform: hyperv1.PlatformSpec{
-				Type: hyperv1.AWSPlatform,
+			Platform: hyperv1beta1.PlatformSpec{
+				Type: hyperv1beta1.AWSPlatform,
 			},
 		},
 	}
 
 	tests := map[string]struct {
 		spec         openshiftkarpenterv1.OpenshiftEC2NodeClassSpec
-		hcp          *hyperv1.HostedControlPlane
+		hcp          *hyperv1beta1.HostedControlPlane
 		expectedSpec awskarpenterv1.EC2NodeClassSpec
 	}{
 		"When OpenshiftEC2NodeClassSpec.spec is empty, it should reconcile the EC2NodeClass with default values": {
@@ -465,16 +465,16 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When HCP has instance-profile annotation, it should set InstanceProfile on EC2NodeClass": {
-			hcp: &hyperv1.HostedControlPlane{
+			hcp: &hyperv1beta1.HostedControlPlane{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						hyperv1.AWSKarpenterDefaultInstanceProfile: "test-instance-profile",
+						hyperv1beta1.AWSKarpenterDefaultInstanceProfile: "test-instance-profile",
 					},
 				},
-				Spec: hyperv1.HostedControlPlaneSpec{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: testInfraID,
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
 					},
 				},
 			},
@@ -509,16 +509,16 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 			},
 		},
 		"When HCP has empty instance-profile annotation, it should NOT set InstanceProfile": {
-			hcp: &hyperv1.HostedControlPlane{
+			hcp: &hyperv1beta1.HostedControlPlane{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						hyperv1.AWSKarpenterDefaultInstanceProfile: "",
+						hyperv1beta1.AWSKarpenterDefaultInstanceProfile: "",
 					},
 				},
-				Spec: hyperv1.HostedControlPlaneSpec{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: testInfraID,
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
 					},
 				},
 			},
@@ -588,13 +588,13 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 					"conflicting-tag": "nodeclass-value", // Platform tag wins by default
 				},
 			},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{
 								{Key: "red-hat-managed", Value: "true"},
 								{Key: "red-hat-clustertype", Value: "rosa"},
 								{Key: "conflicting-tag", Value: "platform-value"},
@@ -644,14 +644,14 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 					"nodeclass-only-tag":  "nodeclass-value",
 				},
 			},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{
-								{Key: "red-hat-clustertype", Value: "rosa", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyDeny},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{
+								{Key: "red-hat-clustertype", Value: "rosa", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyDeny},
 								{Key: "red-hat-managed", Value: "true"},
 							},
 						},
@@ -698,14 +698,14 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 					"nodeclass-only-tag":  "nodeclass-value",
 				},
 			},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{
-								{Key: "red-hat-clustertype", Value: "rosa", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyAllow},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{
+								{Key: "red-hat-clustertype", Value: "rosa", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyAllow},
 								{Key: "red-hat-managed", Value: "true"},
 							},
 						},
@@ -856,21 +856,21 @@ func TestReconcileEC2NodeClass(t *testing.T) {
 
 func TestIsControlPlaneUpgrading(t *testing.T) {
 	tests := map[string]struct {
-		hcp      *hyperv1.HostedControlPlane
+		hcp      *hyperv1beta1.HostedControlPlane
 		expected bool
 	}{
 		"When desired image is empty, it should return false": {
-			hcp: &hyperv1.HostedControlPlane{
-				Status: hyperv1.HostedControlPlaneStatus{
-					ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{},
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Status: hyperv1beta1.HostedControlPlaneStatus{
+					ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{},
 				},
 			},
 			expected: false,
 		},
 		"When no history entries exist (initial install), it should return false": {
-			hcp: &hyperv1.HostedControlPlane{
-				Status: hyperv1.HostedControlPlaneStatus{
-					ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Status: hyperv1beta1.HostedControlPlaneStatus{
+					ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 						Desired: configv1.Release{Image: "quay.io/release:4.17.0"},
 					},
 				},
@@ -878,11 +878,11 @@ func TestIsControlPlaneUpgrading(t *testing.T) {
 			expected: false,
 		},
 		"When desired matches completed, it should return false": {
-			hcp: &hyperv1.HostedControlPlane{
-				Status: hyperv1.HostedControlPlaneStatus{
-					ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Status: hyperv1beta1.HostedControlPlaneStatus{
+					ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 						Desired: configv1.Release{Image: "quay.io/release:4.17.0"},
-						History: []hyperv1.ControlPlaneUpdateHistory{
+						History: []hyperv1beta1.ControlPlaneUpdateHistory{
 							{State: configv1.CompletedUpdate, Image: "quay.io/release:4.17.0"},
 						},
 					},
@@ -891,11 +891,11 @@ func TestIsControlPlaneUpgrading(t *testing.T) {
 			expected: false,
 		},
 		"When desired differs from completed (upgrade in progress), it should return true": {
-			hcp: &hyperv1.HostedControlPlane{
-				Status: hyperv1.HostedControlPlaneStatus{
-					ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Status: hyperv1beta1.HostedControlPlaneStatus{
+					ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 						Desired: configv1.Release{Image: "quay.io/release:4.18.0"},
-						History: []hyperv1.ControlPlaneUpdateHistory{
+						History: []hyperv1beta1.ControlPlaneUpdateHistory{
 							{State: configv1.PartialUpdate, Image: "quay.io/release:4.18.0"},
 							{State: configv1.CompletedUpdate, Image: "quay.io/release:4.17.0"},
 						},
@@ -905,11 +905,11 @@ func TestIsControlPlaneUpgrading(t *testing.T) {
 			expected: true,
 		},
 		"When only partial entries exist (initial install still running), it should return false": {
-			hcp: &hyperv1.HostedControlPlane{
-				Status: hyperv1.HostedControlPlaneStatus{
-					ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Status: hyperv1beta1.HostedControlPlaneStatus{
+					ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 						Desired: configv1.Release{Image: "quay.io/release:4.17.0"},
-						History: []hyperv1.ControlPlaneUpdateHistory{
+						History: []hyperv1beta1.ControlPlaneUpdateHistory{
 							{State: configv1.PartialUpdate, Image: "quay.io/release:4.17.0"},
 						},
 					},
@@ -944,17 +944,17 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 		},
 	}
 
-	upgradingHCP := &hyperv1.HostedControlPlane{
-		Spec: hyperv1.HostedControlPlaneSpec{
+	upgradingHCP := &hyperv1beta1.HostedControlPlane{
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
 			InfraID: testInfraID,
-			Platform: hyperv1.PlatformSpec{
-				Type: hyperv1.AWSPlatform,
+			Platform: hyperv1beta1.PlatformSpec{
+				Type: hyperv1beta1.AWSPlatform,
 			},
 		},
-		Status: hyperv1.HostedControlPlaneStatus{
-			ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+		Status: hyperv1beta1.HostedControlPlaneStatus{
+			ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 				Desired: configv1.Release{Image: "quay.io/release:4.18.0"},
-				History: []hyperv1.ControlPlaneUpdateHistory{
+				History: []hyperv1beta1.ControlPlaneUpdateHistory{
 					{State: configv1.PartialUpdate, Image: "quay.io/release:4.18.0"},
 					{State: configv1.CompletedUpdate, Image: "quay.io/release:4.17.0"},
 				},
@@ -962,17 +962,17 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 		},
 	}
 
-	stableHCP := &hyperv1.HostedControlPlane{
-		Spec: hyperv1.HostedControlPlaneSpec{
+	stableHCP := &hyperv1beta1.HostedControlPlane{
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
 			InfraID: testInfraID,
-			Platform: hyperv1.PlatformSpec{
-				Type: hyperv1.AWSPlatform,
+			Platform: hyperv1beta1.PlatformSpec{
+				Type: hyperv1beta1.AWSPlatform,
 			},
 		},
-		Status: hyperv1.HostedControlPlaneStatus{
-			ControlPlaneVersion: hyperv1.ControlPlaneVersionStatus{
+		Status: hyperv1beta1.HostedControlPlaneStatus{
+			ControlPlaneVersion: hyperv1beta1.ControlPlaneVersionStatus{
 				Desired: configv1.Release{Image: "quay.io/release:4.17.0"},
-				History: []hyperv1.ControlPlaneUpdateHistory{
+				History: []hyperv1beta1.ControlPlaneUpdateHistory{
 					{State: configv1.CompletedUpdate, Image: "quay.io/release:4.17.0"},
 				},
 			},
@@ -980,7 +980,7 @@ func TestReconcileEC2NodeClassUpgradePause(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		hcp                   *hyperv1.HostedControlPlane
+		hcp                   *hyperv1beta1.HostedControlPlane
 		ec2NodeClass          *awskarpenterv1.EC2NodeClass
 		openshiftEC2NodeClass *openshiftkarpenterv1.OpenshiftEC2NodeClass
 		expectedUserData      *string
@@ -1127,7 +1127,7 @@ func TestReconcileStatus(t *testing.T) {
 				Status: tc.ec2NodeClassStatus,
 			}
 
-			hcp := &hyperv1.HostedControlPlane{Spec: hyperv1.HostedControlPlaneSpec{InfraID: "test-infra"}}
+			hcp := &hyperv1beta1.HostedControlPlane{Spec: hyperv1beta1.HostedControlPlaneSpec{InfraID: "test-infra"}}
 			err := r.reconcileStatus(context.Background(), ec2NodeClass, openshiftNodeClass, hcp)
 			g.Expect(err).ToNot(HaveOccurred())
 
@@ -1184,7 +1184,7 @@ func TestReconcileStatusIdempotency(t *testing.T) {
 		},
 	}
 
-	hcp := &hyperv1.HostedControlPlane{Spec: hyperv1.HostedControlPlaneSpec{InfraID: "test-infra"}}
+	hcp := &hyperv1beta1.HostedControlPlane{Spec: hyperv1beta1.HostedControlPlaneSpec{InfraID: "test-infra"}}
 
 	// When reconcileStatus is called twice with the same upstream status it should not accumulate entries
 	g.Expect(r.reconcileStatus(context.Background(), ec2NodeClass, openshiftNodeClass, hcp)).To(Succeed())
@@ -1239,7 +1239,7 @@ func TestReconcileStatusPreservesIgnitionOwnedFields(t *testing.T) {
 			Subnets: []awskarpenterv1.Subnet{{ID: "subnet-0a1b2c3d4e5f60718", Zone: "us-east-1a", ZoneID: "use1-az1"}},
 		},
 	}
-	g.Expect(r.reconcileStatus(t.Context(), ec2NodeClass, openshiftNodeClass, &hyperv1.HostedControlPlane{})).To(Succeed())
+	g.Expect(r.reconcileStatus(t.Context(), ec2NodeClass, openshiftNodeClass, &hyperv1beta1.HostedControlPlane{})).To(Succeed())
 
 	updated := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 	g.Expect(fakeClient.Get(t.Context(), client.ObjectKeyFromObject(openshiftNodeClass), updated)).To(Succeed())
@@ -1253,7 +1253,7 @@ func TestReconcileStatusPreservesIgnitionOwnedFields(t *testing.T) {
 func TestReconcileStatusTagConflictCondition(t *testing.T) {
 	tests := map[string]struct {
 		tags             map[string]string
-		hcp              *hyperv1.HostedControlPlane
+		hcp              *hyperv1beta1.HostedControlPlane
 		expectCondition  bool
 		expectedStatus   metav1.ConditionStatus
 		expectedReason   string
@@ -1261,19 +1261,19 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 	}{
 		"When platform AWS is nil, it should remove the condition": {
 			tags: map[string]string{"key": "value"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{InfraID: "test-infra"},
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{InfraID: "test-infra"},
 			},
 			expectCondition: false,
 		},
 		"When platform ResourceTags is empty, it should remove the condition": {
 			tags: map[string]string{"key": "value"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS:  &hyperv1.AWSPlatformSpec{ResourceTags: []hyperv1.AWSClusterResourceTag{}},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS:  &hyperv1beta1.AWSPlatformSpec{ResourceTags: []hyperv1beta1.AWSClusterResourceTag{}},
 					},
 				},
 			},
@@ -1281,13 +1281,13 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 		},
 		"When nodeclass tags is nil, it should remove the condition": {
 			tags: nil,
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{{Key: "k", Value: "v"}},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{{Key: "k", Value: "v"}},
 						},
 					},
 				},
@@ -1296,50 +1296,50 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 		},
 		"When tags have equal values, it should report no conflicts": {
 			tags: map[string]string{"env": "prod"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{{Key: "env", Value: "prod"}},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{{Key: "env", Value: "prod"}},
 						},
 					},
 				},
 			},
 			expectCondition:  true,
 			expectedStatus:   metav1.ConditionFalse,
-			expectedReason:   hyperv1.AWSResourceTagNoConflictReason,
+			expectedReason:   hyperv1beta1.AWSResourceTagNoConflictReason,
 			expectedContains: "No AWS resource tag conflicts",
 		},
 		"When nodeclass conflicts with unset overridePolicy, it should report conflict detected": {
 			tags: map[string]string{"env": "staging"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{{Key: "env", Value: "prod"}},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{{Key: "env", Value: "prod"}},
 						},
 					},
 				},
 			},
 			expectCondition:  true,
 			expectedStatus:   metav1.ConditionTrue,
-			expectedReason:   hyperv1.AWSResourceTagConflictDetectedReason,
+			expectedReason:   hyperv1beta1.AWSResourceTagConflictDetectedReason,
 			expectedContains: "1 AWS resource tag conflict(s) detected",
 		},
 		"When platform tag has Allow, it should report overrides applied": {
 			tags: map[string]string{"env": "staging"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{
-								{Key: "env", Value: "prod", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyAllow},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{
+								{Key: "env", Value: "prod", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyAllow},
 							},
 						},
 					},
@@ -1347,19 +1347,19 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 			},
 			expectCondition:  true,
 			expectedStatus:   metav1.ConditionFalse,
-			expectedReason:   hyperv1.AWSResourceTagNoConflictReason,
+			expectedReason:   hyperv1beta1.AWSResourceTagNoConflictReason,
 			expectedContains: "1 AWS resource tag override(s) applied",
 		},
 		"When platform tag has Deny, it should report conflict detected": {
 			tags: map[string]string{"env": "staging"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{
-								{Key: "env", Value: "prod", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyDeny},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{
+								{Key: "env", Value: "prod", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyDeny},
 							},
 						},
 					},
@@ -1367,20 +1367,20 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 			},
 			expectCondition:  true,
 			expectedStatus:   metav1.ConditionTrue,
-			expectedReason:   hyperv1.AWSResourceTagConflictDetectedReason,
+			expectedReason:   hyperv1beta1.AWSResourceTagConflictDetectedReason,
 			expectedContains: "1 AWS resource tag conflict(s) detected",
 		},
 		"When both blocked and allowed overrides exist, it should report both in message": {
 			tags: map[string]string{"env": "staging", "team": "other"},
-			hcp: &hyperv1.HostedControlPlane{
-				Spec: hyperv1.HostedControlPlaneSpec{
+			hcp: &hyperv1beta1.HostedControlPlane{
+				Spec: hyperv1beta1.HostedControlPlaneSpec{
 					InfraID: "test-infra",
-					Platform: hyperv1.PlatformSpec{
-						Type: hyperv1.AWSPlatform,
-						AWS: &hyperv1.AWSPlatformSpec{
-							ResourceTags: []hyperv1.AWSClusterResourceTag{
-								{Key: "env", Value: "prod", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyDeny},
-								{Key: "team", Value: "platform", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyAllow},
+					Platform: hyperv1beta1.PlatformSpec{
+						Type: hyperv1beta1.AWSPlatform,
+						AWS: &hyperv1beta1.AWSPlatformSpec{
+							ResourceTags: []hyperv1beta1.AWSClusterResourceTag{
+								{Key: "env", Value: "prod", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyDeny},
+								{Key: "team", Value: "platform", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyAllow},
 							},
 						},
 					},
@@ -1388,7 +1388,7 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 			},
 			expectCondition:  true,
 			expectedStatus:   metav1.ConditionTrue,
-			expectedReason:   hyperv1.AWSResourceTagConflictDetectedReason,
+			expectedReason:   hyperv1beta1.AWSResourceTagConflictDetectedReason,
 			expectedContains: "1 override(s) applied",
 		},
 	}
@@ -1419,7 +1419,7 @@ func TestReconcileStatusTagConflictCondition(t *testing.T) {
 			updated := &openshiftkarpenterv1.OpenshiftEC2NodeClass{}
 			g.Expect(fakeClient.Get(context.Background(), client.ObjectKeyFromObject(openshiftNodeClass), updated)).To(Succeed())
 
-			cond := meta.FindStatusCondition(updated.Status.Conditions, hyperv1.NodePoolAWSResourceTagConflictConditionType)
+			cond := meta.FindStatusCondition(updated.Status.Conditions, hyperv1beta1.NodePoolAWSResourceTagConflictConditionType)
 			if !tc.expectCondition {
 				g.Expect(cond).To(BeNil())
 				return
@@ -1657,31 +1657,31 @@ func TestKarpenterSecretPredicate(t *testing.T) {
 func TestHCPPredicate(t *testing.T) {
 	const namespace = "clusters-example"
 
-	newHCP := func(instanceProfile string, tags ...hyperv1.AWSClusterResourceTag) *hyperv1.HostedControlPlane {
-		hcp := &hyperv1.HostedControlPlane{
+	newHCP := func(instanceProfile string, tags ...hyperv1beta1.AWSClusterResourceTag) *hyperv1beta1.HostedControlPlane {
+		hcp := &hyperv1beta1.HostedControlPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "example",
 				Namespace: namespace,
 			},
-			Spec: hyperv1.HostedControlPlaneSpec{
-				Platform: hyperv1.PlatformSpec{
-					Type: hyperv1.AWSPlatform,
-					AWS: &hyperv1.AWSPlatformSpec{
+			Spec: hyperv1beta1.HostedControlPlaneSpec{
+				Platform: hyperv1beta1.PlatformSpec{
+					Type: hyperv1beta1.AWSPlatform,
+					AWS: &hyperv1beta1.AWSPlatformSpec{
 						ResourceTags: tags,
 					},
 				},
 			},
 		}
 		if instanceProfile != "" {
-			hcp.Annotations = map[string]string{hyperv1.AWSKarpenterDefaultInstanceProfile: instanceProfile}
+			hcp.Annotations = map[string]string{hyperv1beta1.AWSKarpenterDefaultInstanceProfile: instanceProfile}
 		}
 		return hcp
 	}
-	costCenter := hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "1234"}
+	costCenter := hyperv1beta1.AWSClusterResourceTag{Key: "cost-center", Value: "1234"}
 
 	tests := map[string]struct {
-		oldHCP         *hyperv1.HostedControlPlane
-		newHCP         *hyperv1.HostedControlPlane
+		oldHCP         *hyperv1beta1.HostedControlPlane
+		newHCP         *hyperv1beta1.HostedControlPlane
 		expectedResult bool
 	}{
 		"When the instance profile annotation changes, it should accept the event": {
@@ -1691,13 +1691,13 @@ func TestHCPPredicate(t *testing.T) {
 		},
 		"When a resource tag value changes, it should accept the event": {
 			oldHCP:         newHCP("", costCenter),
-			newHCP:         newHCP("", hyperv1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
+			newHCP:         newHCP("", hyperv1beta1.AWSClusterResourceTag{Key: "cost-center", Value: "5678"}),
 			expectedResult: true,
 		},
 		"When a resource tag override policy changes, it should accept the event": {
 			oldHCP: newHCP("", costCenter),
-			newHCP: newHCP("", hyperv1.AWSClusterResourceTag{
-				Key: "cost-center", Value: "1234", OverridePolicy: hyperv1.AWSResourceTagOverridePolicyAllow,
+			newHCP: newHCP("", hyperv1beta1.AWSClusterResourceTag{
+				Key: "cost-center", Value: "1234", OverridePolicy: hyperv1beta1.AWSResourceTagOverridePolicyAllow,
 			}),
 			expectedResult: true,
 		},
@@ -1728,12 +1728,12 @@ func TestHCPPredicate(t *testing.T) {
 func TestReconcileKarpenterSubnetsConfigMap(t *testing.T) {
 	const testNamespace = "clusters-my-cluster"
 
-	hcp := &hyperv1.HostedControlPlane{
+	hcp := &hyperv1beta1.HostedControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-cluster",
 			Namespace: testNamespace,
 		},
-		Spec: hyperv1.HostedControlPlaneSpec{
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
 			InfraID: testInfraID,
 		},
 	}
@@ -2047,7 +2047,7 @@ func TestMapVAPBindingToOpenShiftEC2NodeClasses(t *testing.T) {
 func testScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
-	_ = hyperv1.AddToScheme(scheme)
+	_ = hyperv1beta1.AddToScheme(scheme)
 	_ = openshiftkarpenterv1.AddToScheme(scheme)
 	awsKarpenterGV := schema.GroupVersion{Group: "karpenter.k8s.aws", Version: "v1"}
 	metav1.AddToGroupVersion(scheme, awsKarpenterGV)

@@ -8,7 +8,7 @@ import (
 	openshiftkarpenterv1 "github.com/openshift/karpenter-operator/api/karpenter/v1"
 	"github.com/openshift/karpenter-operator/pkg/hypershift"
 
-	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	hyperv1beta1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -74,7 +74,7 @@ func (c *Controller) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(c.Name()).
-		For(&hyperv1.HostedControlPlane{}, builder.WithPredicates(hcpPredicate())).
+		For(&hyperv1beta1.HostedControlPlane{}, builder.WithPredicates(hcpPredicate())).
 		WatchesRawSource(source.Kind(
 			c.hostedCache.GetCache(),
 			c.config.Provider.WatchObject(),
@@ -94,8 +94,8 @@ func hcpPredicate() predicate.Predicate {
 			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldHCP, oldOK := e.ObjectOld.(*hyperv1.HostedControlPlane)
-			newHCP, newOK := e.ObjectNew.(*hyperv1.HostedControlPlane)
+			oldHCP, oldOK := e.ObjectOld.(*hyperv1beta1.HostedControlPlane)
+			newHCP, newOK := e.ObjectNew.(*hyperv1beta1.HostedControlPlane)
 			if !oldOK || !newOK {
 				return true
 			}
@@ -123,8 +123,8 @@ func (c *Controller) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result
 	return ctrl.Result{}, c.reconcileHCP(ctx, hcp)
 }
 
-func (c *Controller) reconcileHCP(ctx context.Context, hcp *hyperv1.HostedControlPlane) error {
-	if hcp.Spec.AutoNode.Provisioner.Name != hyperv1.ProvisionerKarpenter {
+func (c *Controller) reconcileHCP(ctx context.Context, hcp *hyperv1beta1.HostedControlPlane) error {
+	if hcp.Spec.AutoNode.Provisioner.Name != hyperv1beta1.ProvisionerKarpenter {
 		return nil
 	}
 	if hcp.Annotations[openshiftkarpenterv1.KarpenterCoreE2EOverrideAnnotation] == "true" {
