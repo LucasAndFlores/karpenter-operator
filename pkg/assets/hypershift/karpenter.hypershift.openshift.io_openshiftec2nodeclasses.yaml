@@ -63,8 +63,9 @@ spec:
                       minLength: 1
                       type: string
                     ebs:
-                      description: ebs contains parameters used to automatically set
-                        up EBS volumes when an instance is launched.
+                      description: |-
+                        ebs contains parameters used to automatically set up EBS volumes when an instance is launched.
+                        It must specify either snapshotID or volumeSizeGiB.
                       minProperties: 1
                       properties:
                         deleteOnTermination:
@@ -165,6 +166,8 @@ spec:
                       - RootVolume
                       - NotRootVolume
                       type: string
+                  required:
+                  - ebs
                   type: object
                 maxItems: 50
                 minItems: 1
