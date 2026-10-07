@@ -1,7 +1,10 @@
 package operator
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,6 +12,7 @@ import (
 
 	autoscalingv1alpha1 "github.com/openshift/karpenter-operator/pkg/apis/autoscaling/v1alpha1"
 	"github.com/openshift/karpenter-operator/pkg/assets"
+	"github.com/openshift/karpenter-operator/pkg/controllers"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -20,6 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 )
 
 const (
@@ -95,6 +103,39 @@ var _ = Describe("Resources", Ordered, func() {
 
 		It("should be available", func() {
 			expectClusterOperatorAvailable(ctx)
+		})
+
+		It("When the ClusterOperator is available, it should expose the operator info metric", func() {
+			expectClusterOperatorAvailable(ctx)
+
+			Eventually(func(g Gomega) {
+				families, pod, err := scrapeOperatorMetrics(ctx)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(families).To(HaveKey(controllers.OperatorInfoMetricName))
+
+				var image string
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.Name == controllers.OperatorContainerName {
+						image = status.Image
+						break
+					}
+				}
+				g.Expect(image).NotTo(BeEmpty(), "operator container status image should be available")
+
+				metrics := families[controllers.OperatorInfoMetricName].GetMetric()
+				g.Expect(metrics).NotTo(BeEmpty())
+				for _, metric := range metrics {
+					g.Expect(metric.GetGauge().GetValue()).To(Equal(float64(1)))
+
+					labels := make(map[string]string)
+					for _, label := range metric.GetLabel() {
+						labels[label.GetName()] = label.GetValue()
+					}
+					g.Expect(labels).To(HaveKeyWithValue("image", image))
+					g.Expect(labels).To(HaveKeyWithValue("go_version", Not(BeEmpty())))
+					g.Expect(labels).To(HaveKeyWithValue("go_arch", Not(BeEmpty())))
+				}
+			}, pollOneMinute, pollFiveSecond).Should(Succeed())
 		})
 	})
 
@@ -237,6 +278,47 @@ var _ = Describe("Resources", Ordered, func() {
 		}, pollOneMinute, pollFiveSecond).Should(Succeed())
 	})
 })
+
+func scrapeOperatorMetrics(ctx context.Context) (map[string]*dto.MetricFamily, *corev1.Pod, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	dep := &appsv1.Deployment{}
+	if err := env.Client.Get(ctx, types.NamespacedName{
+		Name:      operatorDeploymentName,
+		Namespace: operatorNamespace,
+	}, dep); err != nil {
+		return nil, nil, fmt.Errorf("get operator deployment: %w", err)
+	}
+	selector, err := metav1.LabelSelectorAsSelector(dep.Spec.Selector)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read operator pod selector: %w", err)
+	}
+	pods := &corev1.PodList{}
+	if err := env.Client.List(ctx, pods, client.InNamespace(operatorNamespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return nil, nil, fmt.Errorf("list operator pods: %w", err)
+	}
+
+	for _, pod := range pods.Items {
+		if pod.DeletionTimestamp != nil || !slices.ContainsFunc(pod.Status.Conditions, func(condition corev1.PodCondition) bool {
+			return condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue
+		}) {
+			continue
+		}
+
+		body, err := coreClient.Pods(operatorNamespace).ProxyGet("http", pod.Name, "8080", "metrics", nil).DoRaw(ctx)
+		if err != nil {
+			return nil, nil, fmt.Errorf("scrape operator pod %s/%s: %w", operatorNamespace, pod.Name, err)
+		}
+		parser := expfmt.NewTextParser(model.UTF8Validation)
+		families, err := parser.TextToMetricFamilies(bytes.NewReader(body))
+		if err != nil {
+			return nil, nil, fmt.Errorf("parse metrics from operator pod %s/%s: %w", operatorNamespace, pod.Name, err)
+		}
+		return families, &pod, nil
+	}
+	return nil, nil, fmt.Errorf("no ready operator pod found in namespace %s", operatorNamespace)
+}
 
 func expectClusterOperatorAvailable(ctx context.Context) {
 	EventuallyWithOffset(1, func(g Gomega) {
