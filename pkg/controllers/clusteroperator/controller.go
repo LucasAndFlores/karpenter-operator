@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -49,13 +48,11 @@ func (r *Controller) Name() string {
 }
 
 func (r *Controller) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	log.FromContext(ctx).Info("reconciling ClusterOperator status")
-
 	var conditions []*configac.ClusterOperatorStatusConditionApplyConfiguration
 	conditions = append(conditions, r.operandConditions(ctx)...)
 
 	if err := r.applyStatus(ctx, conditions); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update ClusterOperator status: %w", err)
+		return ctrl.Result{}, fmt.Errorf("updating ClusterOperator status: %w", err)
 	}
 	return ctrl.Result{}, nil
 }
@@ -90,13 +87,13 @@ func (r *Controller) applyStatus(ctx context.Context, conditions []*configac.Clu
 	// Ensure the ClusterOperator object exists.
 	co := configac.ClusterOperator(clusterOperatorName)
 	if err := r.client.Apply(ctx, co, client.FieldOwner(fieldManager)); err != nil {
-		return fmt.Errorf("failed to apply ClusterOperator: %w", err)
+		return fmt.Errorf("applying ClusterOperator: %w", err)
 	}
 
 	// Read existing conditions to preserve LastTransitionTime for unchanged statuses.
 	existing := &configv1.ClusterOperator{}
 	if err := r.client.Get(ctx, client.ObjectKey{Name: clusterOperatorName}, existing); err != nil {
-		return fmt.Errorf("failed to read existing ClusterOperator: %w", err)
+		return fmt.Errorf("reading existing ClusterOperator: %w", err)
 	}
 
 	now := metav1.Now()

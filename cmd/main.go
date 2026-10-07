@@ -31,20 +31,20 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
-	setupLog.Info("starting", "version", version.String, "go", runtime.Version(), "os", runtime.GOOS, "arch", runtime.GOARCH)
+	setupLog.Info("Starting operator", "version", version.String, "go", runtime.Version(), "os", runtime.GOOS, "arch", runtime.GOARCH)
 
 	if err := opts.LoadEnv(); err != nil {
-		setupLog.Error(err, "failed to load environment")
+		setupLog.Error(err, "Could not load environment")
 		os.Exit(1)
 	}
 
 	if err := opts.Validate(); err != nil {
-		setupLog.Error(err, "invalid configuration")
+		setupLog.Error(err, "Could not validate configuration")
 		os.Exit(1)
 	}
 
 	if err := operator.Run(ctrl.SetupSignalHandler(), opts); err != nil {
-		setupLog.Error(err, "unable to run operator")
+		setupLog.Error(err, "Could not run operator")
 		os.Exit(1)
 	}
 }

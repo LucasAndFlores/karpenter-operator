@@ -38,26 +38,26 @@ type certificateApprovalClient interface {
 	UpdateApproval(context.Context, string, *certificatesv1.CertificateSigningRequest, metav1.UpdateOptions) (*certificatesv1.CertificateSigningRequest, error)
 }
 
-// MachineApproverController approves CSRs for Karpenter-provisioned nodes.
-type MachineApproverController struct {
+// Controller approves CSRs for Karpenter-provisioned nodes.
+type Controller struct {
 	client        client.Client
 	certClient    certificateApprovalClient
 	hostedCluster cluster.Cluster
 	verifier      common.NodeIdentityVerifier
 }
 
-func NewMachineApproverController(hostedCluster cluster.Cluster, verifier common.NodeIdentityVerifier) *MachineApproverController {
-	return &MachineApproverController{
+func NewController(hostedCluster cluster.Cluster, verifier common.NodeIdentityVerifier) *Controller {
+	return &Controller{
 		hostedCluster: hostedCluster,
 		verifier:      verifier,
 	}
 }
 
-func (r *MachineApproverController) Name() string {
+func (r *Controller) Name() string {
 	return controllerName
 }
 
-func (r *MachineApproverController) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Controller) SetupWithManager(mgr ctrl.Manager) error {
 	if r.hostedCluster == nil {
 		return errors.New("hosted cluster is required")
 	}
@@ -74,7 +74,7 @@ func (r *MachineApproverController) SetupWithManager(mgr ctrl.Manager) error {
 
 	c, err := controller.New(r.Name(), mgr, controller.Options{Reconciler: r})
 	if err != nil {
-		return fmt.Errorf("failed to construct %s controller: %w", r.Name(), err)
+		return fmt.Errorf("constructing %s controller: %w", r.Name(), err)
 	}
 
 	if err := c.Watch(source.Kind(
@@ -83,7 +83,7 @@ func (r *MachineApproverController) SetupWithManager(mgr ctrl.Manager) error {
 		&handler.TypedEnqueueRequestForObject[*certificatesv1.CertificateSigningRequest]{},
 		predicate.NewTypedPredicateFuncs(csrFilterFn),
 	)); err != nil {
-		return fmt.Errorf("failed to watch CertificateSigningRequest: %w", err)
+		return fmt.Errorf("watching CertificateSigningRequest: %w", err)
 	}
 
 	return nil
@@ -105,16 +105,15 @@ func csrFilterFn(csr *certificatesv1.CertificateSigningRequest) bool {
 	}
 }
 
-func (r *MachineApproverController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Controller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("Reconciling CSR", "req", req)
 
 	csr := &certificatesv1.CertificateSigningRequest{}
 	if err := r.client.Get(ctx, req.NamespacedName, csr); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to get csr %s: %w", req.NamespacedName, err)
+		return ctrl.Result{}, fmt.Errorf("getting csr: %w", err)
 	}
 
 	// Return early if deleted
@@ -126,7 +125,7 @@ func (r *MachineApproverController) Reconcile(ctx context.Context, req ctrl.Requ
 	// but before we reconcile it, trying to approve it will result in an error and cause a loop.
 	// Return early if the CSR has been approved/denied externally.
 	if !isCertificateRequestPending(csr) {
-		log.Info("CSR is already processed", "csr", csr.Name)
+		log.V(1).Info("CSR is already processed", "csr", csr.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -136,17 +135,17 @@ func (r *MachineApproverController) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if authorized {
-		log.Info("Attempting to approve CSR", "csr", csr.Name)
 		if err := r.approve(ctx, csr); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to approve csr %s: %w", csr.Name, err)
+			return ctrl.Result{}, fmt.Errorf("approving csr: %w", err)
 		}
+		log.Info("Approved CSR", "csr", csr.Name)
 	}
 
 	return ctrl.Result{}, nil
 }
 
 // TODO: include a creation time window for the nodeclaim, the instance and csr triplets and also ratelimit and short circuit approval based on the number of pending CSRs
-func (r *MachineApproverController) authorize(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (bool, error) {
+func (r *Controller) authorize(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (bool, error) {
 	switch csr.Spec.SignerName {
 	case certificatesv1.KubeAPIServerClientKubeletSignerName:
 		return r.authorizeClientCSR(ctx, csr)
@@ -157,7 +156,7 @@ func (r *MachineApproverController) authorize(ctx context.Context, csr *certific
 	return false, fmt.Errorf("unrecognized signerName %s", csr.Spec.SignerName)
 }
 
-func (r *MachineApproverController) authorizeClientCSR(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (bool, error) {
+func (r *Controller) authorizeClientCSR(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (bool, error) {
 	x509cr, err := parseCSR(csr.Spec.Request)
 	if err != nil {
 		return false, err
@@ -184,7 +183,7 @@ func (r *MachineApproverController) authorizeClientCSR(ctx context.Context, csr 
 	return r.verifier.Verify(ctx, nodeName, filteredNodeClaims)
 }
 
-func (r *MachineApproverController) authorizeServingCSR(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (bool, error) {
+func (r *Controller) authorizeServingCSR(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) (bool, error) {
 	nodeName := strings.TrimPrefix(csr.Spec.Username, "system:node:")
 	if len(nodeName) == 0 {
 		return false, fmt.Errorf("csr username does not have a valid node name")
@@ -198,7 +197,7 @@ func (r *MachineApproverController) authorizeServingCSR(ctx context.Context, csr
 	return r.verifier.Verify(ctx, nodeName, []karpenterv1.NodeClaim{*nodeClaim})
 }
 
-func (r *MachineApproverController) approve(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) error {
+func (r *Controller) approve(ctx context.Context, csr *certificatesv1.CertificateSigningRequest) error {
 	csr.Status.Conditions = append(csr.Status.Conditions, certificatesv1.CertificateSigningRequestCondition{
 		Type:    certificatesv1.CertificateApproved,
 		Reason:  "KarpenterCSRApprove",
@@ -235,7 +234,7 @@ func listNodeClaims(ctx context.Context, client client.Client) ([]karpenterv1.No
 	nodeClaimList := &karpenterv1.NodeClaimList{}
 	err := client.List(ctx, nodeClaimList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list NodeClaims: %w", err)
+		return nil, fmt.Errorf("listing NodeClaims: %w", err)
 	}
 
 	return nodeClaimList.Items, nil

@@ -37,7 +37,7 @@ func (r *EC2NodeClassReconciler) getUserDataSecret(ctx context.Context, openshif
 	secretList := &corev1.SecretList{}
 	err := r.managementClient.List(ctx, secretList, listOptions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list secrets: %w", err)
+		return nil, fmt.Errorf("listing secrets: %w", err)
 	}
 
 	expectedNodePoolName := karpenterNodePoolName(openshiftEC2NodeClass)

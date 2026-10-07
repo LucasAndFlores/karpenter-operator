@@ -57,7 +57,7 @@ func Run(ctx context.Context, opts Options) error {
 
 	restCfg, err := ctrl.GetConfig()
 	if err != nil {
-		return fmt.Errorf("failed to load kube config: %w", err)
+		return fmt.Errorf("loading kube config: %w", err)
 	}
 
 	var infra common.InfrastructureInfo
@@ -66,7 +66,7 @@ func Run(ctx context.Context, opts Options) error {
 	} else {
 		infra, err = discoverInfrastructure(ctx, restCfg)
 		if err != nil {
-			return fmt.Errorf("failed to discover infrastructure: %w", err)
+			return fmt.Errorf("discovering infrastructure: %w", err)
 		}
 	}
 
@@ -80,21 +80,21 @@ func Run(ctx context.Context, opts Options) error {
 
 	provider, err := cloudprovider.GetCloudProvider(ctx, infra)
 	if err != nil {
-		return fmt.Errorf("failed to initialize cloud provider: %w", err)
+		return fmt.Errorf("initializing cloud provider: %w", err)
 	}
 
 	cfg := opts.ResolveControllerConfig(infra, provider)
 
-	setupLog.Info("infrastructure",
+	setupLog.Info("Discovered infrastructure",
 		"platform", infra.PlatformType,
 		"region", infra.Region,
-		"clusterName", cfg.ClusterName,
-		"clusterEndpoint", cfg.ClusterEndpoint,
-		"karpenterImage", cfg.KarpenterImage,
+		"cluster name", cfg.ClusterName,
+		"cluster endpoint", cfg.ClusterEndpoint,
+		"karpenter image", cfg.KarpenterImage,
 	)
 
 	if err := provider.AddToScheme(scheme); err != nil {
-		return fmt.Errorf("failed to add cloud provider types to scheme: %w", err)
+		return fmt.Errorf("adding cloud provider types to scheme: %w", err)
 	}
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
@@ -110,7 +110,7 @@ func Run(ctx context.Context, opts Options) error {
 		LeaderElectionID:       "karpenter-operator.openshift.io",
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create manager: %w", err)
+		return fmt.Errorf("creating manager: %w", err)
 	}
 
 	// Only build a hosted cluster if we are running in management cluster mode and a target kubeconfig is provided
@@ -123,13 +123,13 @@ func Run(ctx context.Context, opts Options) error {
 			o.Scheme = scheme
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create hosted cluster: %w", err)
+			return fmt.Errorf("creating hosted cluster: %w", err)
 		}
 		if err := mgr.Add(hostedCluster); err != nil {
-			return fmt.Errorf("failed to add hosted cluster to manager: %w", err)
+			return fmt.Errorf("adding hosted cluster to manager: %w", err)
 		}
 		cfg.HostedCluster = hostedCluster
-		setupLog.Info("hosted cluster configured", "kubeconfig", opts.TargetKubeconfig)
+		setupLog.Info("Configured hosted cluster", "kubeconfig", opts.TargetKubeconfig)
 	}
 
 	if err := controllers.Setup(mgr, controllers.NewControllers(mgr, cfg)...); err != nil {
@@ -137,15 +137,15 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		return fmt.Errorf("failed to set up health check: %w", err)
+		return fmt.Errorf("setting up health check: %w", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		return fmt.Errorf("failed to set up ready check: %w", err)
+		return fmt.Errorf("setting up ready check: %w", err)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start manager: %w", err)
+		return fmt.Errorf("starting manager: %w", err)
 	}
 
 	return nil
@@ -163,12 +163,12 @@ func discoverInfrastructureFromEnv(opts Options) common.InfrastructureInfo {
 func discoverInfrastructure(ctx context.Context, cfg *rest.Config) (common.InfrastructureInfo, error) {
 	c, err := client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
-		return common.InfrastructureInfo{}, fmt.Errorf("failed to create client for infrastructure discovery: %w", err)
+		return common.InfrastructureInfo{}, fmt.Errorf("creating client for infrastructure discovery: %w", err)
 	}
 
 	infra := &configv1.Infrastructure{}
 	if err := c.Get(ctx, types.NamespacedName{Name: "cluster"}, infra); err != nil {
-		return common.InfrastructureInfo{}, fmt.Errorf("failed to get Infrastructure CR: %w", err)
+		return common.InfrastructureInfo{}, fmt.Errorf("getting Infrastructure CR: %w", err)
 	}
 	if infra.Status.PlatformStatus == nil {
 		return common.InfrastructureInfo{}, fmt.Errorf("infrastructure status.platformStatus is nil")

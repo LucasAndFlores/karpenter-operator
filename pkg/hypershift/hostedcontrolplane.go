@@ -18,7 +18,7 @@ var ErrHostedControlPlaneNotFound = errors.New("hosted control plane not found")
 func GetHostedControlPlane(ctx context.Context, c client.Reader, namespace string) (*hyperv1beta1.HostedControlPlane, error) {
 	hcpList := &hyperv1beta1.HostedControlPlaneList{}
 	if err := c.List(ctx, hcpList, client.InNamespace(namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list hosted control planes: %w", err)
+		return nil, fmt.Errorf("listing hosted control planes: %w", err)
 	}
 	switch len(hcpList.Items) {
 	case 0:

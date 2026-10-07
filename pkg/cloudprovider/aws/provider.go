@@ -38,7 +38,7 @@ func New(ctx context.Context, infra common.InfrastructureInfo) (*Provider, error
 
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(infra.Region))
 	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS config: %w", err)
+		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
 
 	return &Provider{

@@ -126,13 +126,13 @@ func newMachineApproverController(cfg *Config) Controller {
 		return nil
 	}
 
-	return machineapprover.NewMachineApproverController(cfg.HostedCluster, verifier)
+	return machineapprover.NewController(cfg.HostedCluster, verifier)
 }
 
 func Setup(mgr ctrl.Manager, controllers ...Controller) error {
 	for _, c := range controllers {
 		if err := c.SetupWithManager(mgr); err != nil {
-			return fmt.Errorf("failed to setup controller: %w", err)
+			return fmt.Errorf("setting up controller: %w", err)
 		}
 	}
 	return nil

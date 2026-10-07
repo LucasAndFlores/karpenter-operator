@@ -133,7 +133,7 @@ func TestAuthorizeClientCSR(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			verifier := &fakeNodeIdentityVerifier{authorized: tc.authorize}
-			r := &MachineApproverController{
+			r := &Controller{
 				client:   fake.NewClientBuilder().WithScheme(scheme()).WithObjects(tc.objects...).Build(),
 				verifier: verifier,
 			}
@@ -192,7 +192,7 @@ func TestAuthorizeServingCSR(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			verifier := &fakeNodeIdentityVerifier{authorized: tc.authorize}
-			r := &MachineApproverController{
+			r := &Controller{
 				client:   fake.NewClientBuilder().WithScheme(scheme()).WithObjects(tc.objects...).Build(),
 				verifier: verifier,
 			}
@@ -229,7 +229,7 @@ func TestReconcileApprovesAuthorizedCSR(t *testing.T) {
 	controllerClient := fake.NewClientBuilder().WithScheme(scheme()).WithObjects(csr, nodeClaim).Build()
 	certificateClient := &fakeCertificateApprovalClient{}
 
-	r := &MachineApproverController{
+	r := &Controller{
 		client:     controllerClient,
 		certClient: certificateClient,
 		verifier:   &fakeNodeIdentityVerifier{authorized: true},
@@ -257,7 +257,7 @@ func TestReconcileApprovesAuthorizedCSR(t *testing.T) {
 func TestReconcileReturnsVerifierError(t *testing.T) {
 	csr := newTestCSR("csr")
 	nodeClaim := nodeClaim("aws:///instance-1", "")
-	r := &MachineApproverController{
+	r := &Controller{
 		client: fake.NewClientBuilder().WithScheme(scheme()).WithObjects(csr, nodeClaim).Build(),
 		verifier: &fakeNodeIdentityVerifier{
 			err: errors.New("authorization failed"),
