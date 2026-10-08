@@ -78,11 +78,11 @@ func TestNewControllers(t *testing.T) {
 			wantControllers:   []string{"crd", "default-nodeclass", "ec2-nodeclass", "karpenter", "karpenter-machine-approver"},
 		},
 		{
-			name:              "When running in HCP Azure mode it should only enable core controllers",
+			name:              "When running in HCP Azure mode, it should enable HCP-enabled controllers",
 			cloudProvider:     &azure.Provider{},
 			hostedCluster:     &testfake.Cluster{Cl: fakeclient.NewClientBuilder().Build(), Ca: &testfake.Cache{}},
 			managementCluster: true,
-			wantControllers:   []string{"crd", "karpenter"},
+			wantControllers:   []string{"crd", "default-nodeclass", "azure-nodeclass", "azure-nodeclass-vap", "karpenter"},
 		},
 	}
 
@@ -134,11 +134,11 @@ func TestKarpenterCRDs(t *testing.T) {
 			managementCluster: true,
 			wantCRDs:          []string{"nodepools.karpenter.sh", "nodeclaims.karpenter.sh", "ec2nodeclasses.karpenter.k8s.aws", "openshiftec2nodeclasses.karpenter.hypershift.openshift.io"},
 		},
-		"When running in HCP Azure mode, it should only install the Azure CRDs": {
+		"When running in HCP Azure mode, it should also install the OpenShiftAzureNodeClass CRD": {
 			cloudProvider:     &azure.Provider{},
 			hostedCluster:     hostedCluster,
 			managementCluster: true,
-			wantCRDs:          []string{"nodepools.karpenter.sh", "nodeclaims.karpenter.sh", "aksnodeclasses.karpenter.azure.com", "nodeoverlays.karpenter.sh"},
+			wantCRDs:          []string{"nodepools.karpenter.sh", "nodeclaims.karpenter.sh", "aksnodeclasses.karpenter.azure.com", "nodeoverlays.karpenter.sh", "openshiftazurenodeclasses.karpenter.hypershift.openshift.io"},
 		},
 	}
 

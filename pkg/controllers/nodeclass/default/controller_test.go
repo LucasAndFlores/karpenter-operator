@@ -102,6 +102,23 @@ func TestReconcileDefaultNodeClass(t *testing.T) {
 	}
 }
 
+func TestReconcileWithoutDefaultNodeClass(t *testing.T) {
+	g := NewWithT(t)
+	hcp := &hyperv1beta1.HostedControlPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: testHCPName, Namespace: testNamespace},
+		Spec: hyperv1beta1.HostedControlPlaneSpec{
+			InfraID:  testInfraID,
+			AutoNode: hyperv1beta1.AutoNode{Provisioner: hyperv1beta1.ProvisionerConfig{Name: hyperv1beta1.ProvisionerKarpenter}},
+		},
+	}
+	hostedClient, controller := newControllerWithHCPs(t, nil, testDefaultNodeClassProvider{noDefault: true}, hcp)
+	_, err := controller.Reconcile(t.Context(), ctrl.Request{})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	err = hostedClient.Get(t.Context(), client.ObjectKey{Name: defaultNodeClassName}, defaultNodeClassObject())
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+}
+
 func TestReconcileOperatorOwnedSelectors(t *testing.T) {
 	g := NewWithT(t)
 	hcp := &hyperv1beta1.HostedControlPlane{
@@ -269,9 +286,14 @@ func TestNodeClassPredicate(t *testing.T) {
 }
 
 // testDefaultNodeClassProvider supplies default NodeClass behavior for tests.
-type testDefaultNodeClassProvider struct{}
+type testDefaultNodeClassProvider struct {
+	noDefault bool
+}
 
-func (testDefaultNodeClassProvider) DefaultNodeClass(infraID string) (client.Object, controllerutil.MutateFn, error) {
+func (p testDefaultNodeClassProvider) DefaultNodeClass(infraID string) (client.Object, controllerutil.MutateFn, error) {
+	if p.noDefault {
+		return nil, nil, nil
+	}
 	object := defaultNodeClassObject()
 	mutate := func() error {
 		object.Labels = map[string]string{"managed-by": "test"}

@@ -48,6 +48,9 @@ var (
 
 	// AzureCRDs holds Azure-specific Karpenter CRDs (AKSNodeClass).
 	AzureCRDs []*apiextensionsv1.CustomResourceDefinition
+
+	// AzureHCPCRDs holds Azure-specific HyperShift CRDs (OpenShiftAzureNodeClass) for hosted clusters.
+	AzureHCPCRDs []*apiextensionsv1.CustomResourceDefinition
 )
 
 func init() {
@@ -110,5 +113,9 @@ func init() {
 		// TODO(maxcao13): Azure Karpenter Provider requires this CRD to exist, but we don't formally support NodeOverlay yet.
 		// https://redhat.atlassian.net/browse/RFE-9604
 		mustDecode(crdContent, "crds/karpenter.sh_nodeoverlays.yaml").(*apiextensionsv1.CustomResourceDefinition),
+	}
+
+	AzureHCPCRDs = []*apiextensionsv1.CustomResourceDefinition{
+		mustDecode(hypershiftContent, "hypershift/karpenter.hypershift.openshift.io_openshiftazurenodeclasses.yaml").(*apiextensionsv1.CustomResourceDefinition),
 	}
 }

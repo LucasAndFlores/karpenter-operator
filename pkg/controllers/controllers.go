@@ -63,17 +63,20 @@ func NewControllers(mgr ctrl.Manager, cfg *Config) []Controller {
 					Namespace:     cfg.Namespace,
 					Provider:      hcpNodeClassProvider,
 				}),
-				hcpNodeClassProvider.NewController(cfg.HostedCluster, cfg.Namespace),
 			)
+			for _, controller := range hcpNodeClassProvider.NewControllers(cfg.HostedCluster, cfg.Namespace) {
+				controllers = append(controllers, controller)
+			}
 		}
-		controllers = append(controllers, karpenter.NewHCPController(mgr.GetClient(), &karpenter.HCPControllerConfig{
-			Namespace:        cfg.Namespace,
-			KarpenterImage:   cfg.KarpenterImage,
-			ClusterName:      cfg.ClusterName,
-			ClusterEndpoint:  cfg.ClusterEndpoint,
-			CloudProvider:    cfg.CloudProvider,
-			TokenMinterImage: cfg.TokenMinterImage,
-		}),
+		controllers = append(controllers,
+			karpenter.NewHCPController(mgr.GetClient(), &karpenter.HCPControllerConfig{
+				Namespace:        cfg.Namespace,
+				KarpenterImage:   cfg.KarpenterImage,
+				ClusterName:      cfg.ClusterName,
+				ClusterEndpoint:  cfg.ClusterEndpoint,
+				CloudProvider:    cfg.CloudProvider,
+				TokenMinterImage: cfg.TokenMinterImage,
+			}),
 		)
 
 		if controller := newMachineApproverController(cfg); controller != nil {
