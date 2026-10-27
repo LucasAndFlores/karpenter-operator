@@ -99,8 +99,8 @@ Generates `install/04_rbac.yaml` by:
 **Upstream rebase** (new Karpenter version):
 
 ```bash
-# Update OPERAND_BRANCH in hack/manifest-diff-upstream.sh, then:
-make manifest-diff-sync
+# Update OPERAND_BRANCH in the Makefile, then bump the Go pins and sync the assets:
+make bump-forks
 ```
 
 **New upstream RBAC resource appeared** (script fails with "unhandled"):
