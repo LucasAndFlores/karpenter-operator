@@ -1629,16 +1629,20 @@ spec:
                 properties:
                   offer:
                     description: offer is the product line of the image.
+                    minLength: 1
                     type: string
                   publisher:
                     description: publisher is the name of the organization that published
                       the image.
+                    minLength: 1
                     type: string
                   sku:
                     description: sku is the specific image flavor.
+                    minLength: 1
                     type: string
                   version:
                     description: version is the image build version.
+                    minLength: 1
                     type: string
                 required:
                 - offer
@@ -1646,10 +1650,6 @@ spec:
                 - sku
                 - version
                 type: object
-                x-kubernetes-validations:
-                - message: publisher, offer, sku and version must all be set
-                  rule: self.publisher != '' && self.offer != '' && self.sku != ''
-                    && self.version != ''
               maxPods:
                 description: |-
                   maxPods is an override for the maximum number of pods that can run on a worker node instance.
@@ -1660,8 +1660,6 @@ spec:
                     - If Network Plugin is None, the default is 250.
                     - Otherwise, the default is 110 (the usual Kubernetes default).
                 format: int32
-                maximum: 250
-                minimum: 10
                 type: integer
               osDiskSizeGB:
                 default: 128
