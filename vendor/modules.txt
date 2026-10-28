@@ -1,5 +1,5 @@
-# github.com/Azure/karpenter-provider-azure v0.0.0 => github.com/openshift/Azure-karpenter-provider-azure v0.0.0-20260826161449-579739a231a1
-## explicit; go 1.26.4
+# github.com/Azure/karpenter-provider-azure v0.0.0 => github.com/openshift/Azure-karpenter-provider-azure v0.0.0-20261026235616-bc70c7241ed3
+## explicit; go 1.26.3
 github.com/Azure/karpenter-provider-azure/pkg/apis
 github.com/Azure/karpenter-provider-azure/pkg/apis/v1beta1
 # github.com/Masterminds/semver/v3 v3.5.0
@@ -91,7 +91,7 @@ github.com/aws/aws-sdk-go-v2/service/ssooidc/types
 github.com/aws/aws-sdk-go-v2/service/sts
 github.com/aws/aws-sdk-go-v2/service/sts/internal/endpoints
 github.com/aws/aws-sdk-go-v2/service/sts/types
-# github.com/aws/karpenter-provider-aws v0.0.0 => github.com/openshift/aws-karpenter-provider-aws v0.0.0-20260722223016-abcf7d1e3417
+# github.com/aws/karpenter-provider-aws v0.0.0 => github.com/openshift/aws-karpenter-provider-aws v0.0.0-20261013185003-aa136f7fdc38
 ## explicit; go 1.25.8
 github.com/aws/karpenter-provider-aws/pkg/apis
 github.com/aws/karpenter-provider-aws/pkg/apis/v1
@@ -1023,7 +1023,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
 ## explicit; go 1.23
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/karpenter v1.13.0 => github.com/openshift/kubernetes-sigs-karpenter v0.0.0-20260721214330-2b8ed744bf1c
+# sigs.k8s.io/karpenter v1.13.0 => github.com/openshift/kubernetes-sigs-karpenter v0.0.0-20261021200634-6d0051169286
 ## explicit; go 1.25.8
 sigs.k8s.io/karpenter/pkg/apis
 sigs.k8s.io/karpenter/pkg/apis/v1
@@ -1049,7 +1049,7 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
-# github.com/aws/karpenter-provider-aws => github.com/openshift/aws-karpenter-provider-aws v0.0.0-20260722223016-abcf7d1e3417
-# github.com/Azure/karpenter-provider-azure => github.com/openshift/Azure-karpenter-provider-azure v0.0.0-20260826161449-579739a231a1
-# sigs.k8s.io/karpenter => github.com/openshift/kubernetes-sigs-karpenter v0.0.0-20260721214330-2b8ed744bf1c
+# github.com/aws/karpenter-provider-aws => github.com/openshift/aws-karpenter-provider-aws v0.0.0-20261013185003-aa136f7fdc38
+# github.com/Azure/karpenter-provider-azure => github.com/openshift/Azure-karpenter-provider-azure v0.0.0-20261026235616-bc70c7241ed3
+# sigs.k8s.io/karpenter => github.com/openshift/kubernetes-sigs-karpenter v0.0.0-20261021200634-6d0051169286
 # github.com/openshift/karpenter-operator/api => ./api

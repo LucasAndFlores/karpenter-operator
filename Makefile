@@ -15,6 +15,10 @@ export GOFLAGS
 GOPROXY ?=
 export GOPROXY
 
+# Branches of the OpenShift forks that the replace directives in go.mod point at.
+OPERAND_BRANCH   ?= release-5.1
+KARPENTER_BRANCH ?= main
+
 # CONTAINER_TOOL defines the container tool to be used for building images.
 ifeq ($(shell command -v podman > /dev/null 2>&1 ; echo $$?), 0)
 CONTAINER_TOOL ?= podman
@@ -117,12 +121,12 @@ lint-fix: $(GOLANGCI_LINT) ## Run golangci-lint against code and fix issues.
 
 .PHONY: manifest-diff
 manifest-diff: $(YQ) $(HELM) ## Check RBAC manifests are in sync (no writes).
-	YQ=$(YQ) HELM=$(HELM) hack/manifest-diff-upstream.sh
+	OPERAND_BRANCH=$(OPERAND_BRANCH) YQ=$(YQ) HELM=$(HELM) hack/manifest-diff-upstream.sh
 	YQ=$(YQ) hack/manifest-diff.sh
 
 .PHONY: manifest-diff-sync
 manifest-diff-sync: $(YQ) $(HELM) ## Regenerate RBAC manifests from sources.
-	YQ=$(YQ) HELM=$(HELM) hack/manifest-diff-upstream.sh --sync
+	OPERAND_BRANCH=$(OPERAND_BRANCH) YQ=$(YQ) HELM=$(HELM) hack/manifest-diff-upstream.sh --sync
 	YQ=$(YQ) hack/manifest-diff.sh --sync
 
 .PHONY: verify-git-clean
@@ -163,6 +167,33 @@ api-deps:
 		go mod tidy && \
 		go mod vendor && \
 		go mod verify
+
+.PHONY: bump-forks
+bump-forks: ## Bump all fork replaces to their branches, re-vendor and sync the operand assets.
+	$(MAKE) bump-fork-aws
+	$(MAKE) bump-fork-azure
+	$(MAKE) bump-fork-karpenter
+	$(MAKE) manifest-diff-sync
+
+# bump-fork MODULE FORK BRANCH
+define bump-fork
+	@echo "==> Bumping $(2) to branch $(3)"
+	go mod edit -replace=$(1)=$(2)@$(3)
+	$(MAKE) vendor
+	@grep '^replace $(1) ' go.mod
+endef
+
+.PHONY: bump-fork-aws
+bump-fork-aws: ## Point the aws fork replace at OPERAND_BRANCH and re-vendor.
+	$(call bump-fork,github.com/aws/karpenter-provider-aws,github.com/openshift/aws-karpenter-provider-aws,$(OPERAND_BRANCH))
+
+.PHONY: bump-fork-azure
+bump-fork-azure: ## Point the azure fork replace at OPERAND_BRANCH and re-vendor.
+	$(call bump-fork,github.com/Azure/karpenter-provider-azure,github.com/openshift/Azure-karpenter-provider-azure,$(OPERAND_BRANCH))
+
+.PHONY: bump-fork-karpenter
+bump-fork-karpenter: ## Point the karpenter core fork replace at KARPENTER_BRANCH and re-vendor.
+	$(call bump-fork,sigs.k8s.io/karpenter,github.com/openshift/kubernetes-sigs-karpenter,$(KARPENTER_BRANCH))
 
 ##@ Build
 

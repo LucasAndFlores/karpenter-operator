@@ -14,7 +14,7 @@
 # To handle a new resource, add an `extract KIND NAME FILE` call in the
 # appropriate section (core or AWS) below, then re-run.
 #
-# Usage:
+# Usage (OPERAND_BRANCH is set by the Makefile, prefer `make manifest-diff[-sync]`):
 #   hack/manifest-diff-upstream.sh          # diff only (exit 1 if out of sync)
 #   hack/manifest-diff-upstream.sh --sync   # overwrite assets from fork chart
 #
@@ -24,7 +24,7 @@ set -euo pipefail
 
 AWS_REPO_NAME="openshift/aws-karpenter-provider-aws"
 AZURE_REPO_NAME="openshift/Azure-karpenter-provider-azure"
-OPERAND_BRANCH="release-5.1"
+OPERAND_BRANCH="${OPERAND_BRANCH:?set OPERAND_BRANCH or run via make}"
 
 NAMESPACE="openshift-karpenter"
 
